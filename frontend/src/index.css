@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #fbfbfa;
+  --color-panel: #ffffff;
+  --color-ink: #1f1e1c;
+  --color-soft: #6f6d67;
+  --color-faint: #757269;
+  --color-line: rgb(31 30 28 / 0.1);
+  --color-action: #2563eb;
+  --color-danger: #d33a2f;
+
+  --font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
+}
+
+html {
+  background: var(--color-paper);
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  font-size: 15px;
+}
+
+::selection {
+  background: rgb(37 99 235 / 0.18);
+}
+input, textarea {
+  caret-color: var(--color-action);
+}
+:focus-visible {
+  outline: 2px solid var(--color-action);
+  outline-offset: 2px;
+}
+input:focus,
+input:focus-visible {
+  outline: none;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(31 30 28 / 0.25) transparent;
+}
+
+.rule {
+  border-top: 1px solid var(--color-line);
+}
+
+.meta {
+  font-size: 0.8125rem;
+  color: var(--color-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes set-line {
+  from { opacity: 0; transform: translateY(0.25em); }
+  to { opacity: 1; transform: none; }
+}
+.set-line {
+  animation: set-line 450ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes ink-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.9; }
+}
+.ink-pulse {
+  animation: ink-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes rec-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+.rec-pulse {
+  animation: rec-pulse 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .set-line { animation: none; }
+  .ink-pulse { animation: none; opacity: 0.6; }
+  .rec-pulse { animation: none; }
+}

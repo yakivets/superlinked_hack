@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-14T00:00:00Z",
+  "title": "Design System: Echo",
+  "extensions": {
+    "colorMeta": {
+      "paper": { "role": "neutral", "displayName": "Paper", "canonical": "#fbfbfa", "tonalRamp": ["oklch(20% 0.004 106)", "oklch(32% 0.004 106)", "oklch(45% 0.004 106)", "oklch(58% 0.004 106)", "oklch(70% 0.004 106)", "oklch(82% 0.003 106)", "oklch(92% 0.002 106)", "oklch(98.6% 0.002 106)"] },
+      "panel": { "role": "neutral", "displayName": "Panel White", "canonical": "#ffffff", "tonalRamp": ["oklch(20% 0 0)", "oklch(32% 0 0)", "oklch(45% 0 0)", "oklch(58% 0 0)", "oklch(70% 0 0)", "oklch(82% 0 0)", "oklch(93% 0 0)", "oklch(100% 0 0)"] },
+      "ink": { "role": "neutral", "displayName": "Warm Ink", "canonical": "#1f1e1c", "tonalRamp": ["oklch(15% 0.004 90)", "oklch(23.5% 0.004 90)", "oklch(35% 0.004 90)", "oklch(48% 0.004 90)", "oklch(60% 0.004 90)", "oklch(73% 0.004 90)", "oklch(85% 0.003 90)", "oklch(95% 0.002 90)"] },
+      "soft": { "role": "neutral", "displayName": "Soft Gray", "canonical": "#6f6d67", "tonalRamp": ["oklch(15% 0.008 95)", "oklch(25% 0.008 95)", "oklch(35% 0.008 95)", "oklch(45% 0.008 95)", "oklch(53.5% 0.008 95)", "oklch(68% 0.008 95)", "oklch(82% 0.006 95)", "oklch(94% 0.004 95)"] },
+      "faint": { "role": "neutral", "displayName": "Faint Gray", "canonical": "#757269", "tonalRamp": ["oklch(15% 0.012 95)", "oklch(25% 0.012 95)", "oklch(35% 0.012 95)", "oklch(45% 0.012 95)", "oklch(55.5% 0.012 95)", "oklch(69% 0.010 95)", "oklch(83% 0.008 95)", "oklch(94% 0.005 95)"] },
+      "line": { "role": "neutral", "displayName": "Translucent Hairline", "canonical": "rgb(31 30 28 / 0.1)", "tonalRamp": ["rgb(31 30 28 / 0.9)", "rgb(31 30 28 / 0.7)", "rgb(31 30 28 / 0.5)", "rgb(31 30 28 / 0.35)", "rgb(31 30 28 / 0.25)", "rgb(31 30 28 / 0.15)", "rgb(31 30 28 / 0.1)", "rgb(31 30 28 / 0.05)"] },
+      "action": { "role": "primary", "displayName": "Action Blue", "canonical": "#2563eb", "tonalRamp": ["oklch(20% 0.12 263)", "oklch(30% 0.16 263)", "oklch(40% 0.19 263)", "oklch(48% 0.21 263)", "oklch(54.6% 0.215 263)", "oklch(66% 0.17 263)", "oklch(80% 0.10 263)", "oklch(93% 0.04 263)"] },
+      "danger": { "role": "signal", "displayName": "Danger Red", "canonical": "#d33a2f", "tonalRamp": ["oklch(22% 0.10 29)", "oklch(32% 0.14 29)", "oklch(42% 0.17 29)", "oklch(50% 0.185 29)", "oklch(56.5% 0.19 29)", "oklch(68% 0.14 29)", "oklch(81% 0.09 29)", "oklch(93% 0.03 29)"] }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Headline", "purpose": "Meeting title on the detail page, with text-wrap: balance. Largest type in the product." },
+      "title": { "displayName": "Title", "purpose": "Meeting-row titles and the Transcript toggle label." },
+      "body": { "displayName": "Body", "purpose": "Summaries, synthesis answers, transcript turns; leading 1.65-1.7 for prose." },
+      "secondary": { "displayName": "Secondary", "purpose": "Row summaries (2-line clamp) and nav links." },
+      "meta": { "displayName": "Meta", "purpose": "The .meta utility: dates, durations, sources, statuses; soft gray with tabular-nums." }
+    },
+    "shadows": [
+      { "name": "panel-lift", "value": "0 1px 2px rgb(31 30 28 / 0.04)", "purpose": "Resting lift on the two white panels (search input, answer panel). The entire resting shadow vocabulary." },
+      { "name": "focus-ring", "value": "0 0 0 3px rgb(37 99 235 / 0.12)", "purpose": "Search input focus, paired with border-color shifting to action blue at 60% alpha." }
+    ],
+    "motion": [
+      { "name": "set-line", "value": "450ms cubic-bezier(0.16, 1, 0.3, 1) both (opacity 0 to 1, translateY 0.25em to 0)", "purpose": "Synthesis answer paragraphs settle in, staggered 120ms per line." },
+      { "name": "ink-pulse", "value": "1.5s ease-in-out infinite (opacity 0.45 to 0.9)", "purpose": "In-flight status words and Loading text." },
+      { "name": "rec-pulse", "value": "1.2s ease-in-out infinite (opacity 1 to 0.25)", "purpose": "Recording dot in the test mic control." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Search / Ask Input",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "The primary action of the product: one rounded input that both live-filters and asks.",
+      "html": "<div class=\"ds-search-wrap\"><svg viewBox=\"0 0 20 20\" width=\"16\" height=\"16\" aria-hidden=\"true\" class=\"ds-search-icon\"><circle cx=\"9\" cy=\"9\" r=\"6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\"/><path d=\"M13.5 13.5 L17.5 17.5\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"/></svg><input class=\"ds-input-search\" type=\"text\" placeholder=\"Search or ask anything\" /></div>",
+      "css": ".ds-search-wrap { position: relative; } .ds-search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--color-faint, #757269); pointer-events: none; } .ds-input-search { width: 100%; border: 1px solid var(--color-line, rgb(31 30 28 / 0.1)); background: var(--color-panel, #ffffff); border-radius: 12px; padding: 12px 96px 12px 44px; font-size: 0.9375rem; color: var(--color-ink, #1f1e1c); box-shadow: 0 1px 2px rgb(31 30 28 / 0.04); transition: border-color 150ms, box-shadow 150ms; } .ds-input-search::placeholder { color: var(--color-faint, #757269); } .ds-input-search:focus { outline: none; border-color: rgb(37 99 235 / 0.6); box-shadow: 0 0 0 3px rgb(37 99 235 / 0.12); }"
+    },
+    {
+      "name": "Ask Button",
+      "kind": "button",
+      "refersTo": "button-ask",
+      "description": "The only filled button in the product; appears inside the search input's right edge when a query exists.",
+      "html": "<button class=\"ds-btn-ask\">Ask</button>",
+      "css": ".ds-btn-ask { background: var(--color-action, #2563eb); color: #ffffff; border: none; border-radius: 8px; padding: 6px 12px; font-size: 0.8125rem; font-weight: 500; cursor: pointer; transition: opacity 150ms; } .ds-btn-ask:hover { opacity: 0.9; } .ds-btn-ask:disabled { opacity: 0.5; } .ds-btn-ask:focus-visible { outline: 2px solid var(--color-action, #2563eb); outline-offset: 2px; }"
+    },
+    {
+      "name": "Nav Link",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "Quiet pill navigation; soft at rest, ink tint plus medium weight when active.",
+      "html": "<nav class=\"ds-nav\"><a href=\"#\" class=\"ds-nav-link ds-nav-link-active\">Meetings</a><a href=\"#\" class=\"ds-nav-link\">Threads</a></nav>",
+      "css": ".ds-nav { display: flex; gap: 4px; align-items: center; } .ds-nav-link { border-radius: 6px; padding: 4px 10px; font-size: 0.875rem; text-decoration: none; color: var(--color-soft, #6f6d67); transition: color 150ms, background-color 150ms; } .ds-nav-link:hover { color: var(--color-ink, #1f1e1c); } .ds-nav-link-active { background: rgb(31 30 28 / 0.06); font-weight: 500; color: var(--color-ink, #1f1e1c); }"
+    },
+    {
+      "name": "Meeting Row",
+      "kind": "card",
+      "refersTo": "list-row",
+      "description": "Flat divided list row: title and meta on one baseline, clamped summary below, whole row is a link.",
+      "html": "<a href=\"#\" class=\"ds-row\"><div class=\"ds-row-head\"><h2 class=\"ds-row-title\">Weekly product sync</h2><span class=\"ds-row-meta\">14 Aug, 15:02 · 4m 12s</span></div><p class=\"ds-row-summary\">Agreed to ship the search fusion scoring before the demo and moved the graph endpoint behind a feature flag until reranking stabilises.</p></a>",
+      "css": ".ds-row { display: block; margin: 0 -12px; padding: 16px 12px; border-radius: 8px; text-decoration: none; color: var(--color-ink, #1f1e1c); border-top: 1px solid var(--color-line, rgb(31 30 28 / 0.1)); transition: background-color 150ms; } .ds-row:hover { background: rgb(31 30 28 / 0.03); } .ds-row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; } .ds-row-title { font-size: 0.9375rem; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-row-meta { flex-shrink: 0; font-size: 0.8125rem; color: var(--color-soft, #6f6d67); font-variant-numeric: tabular-nums; } .ds-row-summary { margin: 4px 0 0; font-size: 0.875rem; line-height: 1.625; color: var(--color-soft, #6f6d67); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }"
+    },
+    {
+      "name": "Answer Panel",
+      "kind": "card",
+      "refersTo": "panel-answer",
+      "description": "The synthesis response: the one content surface that earns a full white panel, with a hairline-topped sources line.",
+      "html": "<section class=\"ds-answer\"><p class=\"ds-answer-p\">Across the last three meetings the team converged on <strong>shipping search first</strong> and deferring the device firmware polish until after the demo.</p><p class=\"ds-answer-sources\">Sources: <a href=\"#\" class=\"ds-answer-src\">Weekly product sync</a>, <a href=\"#\" class=\"ds-answer-src\">Demo dry run</a></p></section>",
+      "css": ".ds-answer { background: var(--color-panel, #ffffff); border: 1px solid var(--color-line, rgb(31 30 28 / 0.1)); border-radius: 12px; padding: 20px; box-shadow: 0 1px 2px rgb(31 30 28 / 0.04); } .ds-answer-p { margin: 0; font-size: 0.9375rem; line-height: 1.65; color: var(--color-ink, #1f1e1c); animation: ds-set-line 450ms cubic-bezier(0.16, 1, 0.3, 1) both; } .ds-answer-p strong { font-weight: 600; } .ds-answer-sources { margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--color-line, rgb(31 30 28 / 0.1)); font-size: 0.8125rem; color: var(--color-soft, #6f6d67); font-variant-numeric: tabular-nums; } .ds-answer-src { color: var(--color-action, #2563eb); text-decoration: none; } .ds-answer-src:hover { text-decoration: underline; } @keyframes ds-set-line { from { opacity: 0; transform: translateY(0.25em); } to { opacity: 1; transform: none; } }"
+    },
+    {
+      "name": "Topic Chip",
+      "kind": "chip",
+      "refersTo": "chip-topic",
+      "description": "Non-interactive topic tag: full-round, 5% ink tint, soft text.",
+      "html": "<span class=\"ds-chip\">search quality</span> <span class=\"ds-chip\">demo prep</span>",
+      "css": ".ds-chip { display: inline-block; background: rgb(31 30 28 / 0.05); color: var(--color-soft, #6f6d67); border-radius: 9999px; padding: 4px 10px; font-size: 0.8125rem; }"
+    },
+    {
+      "name": "Status Line",
+      "kind": "custom",
+      "refersTo": "input-search",
+      "description": "The pipeline's voice: exact words, pulsing blue while in flight, static red on failure. No spinners exist.",
+      "html": "<p class=\"ds-status ds-status-inflight\">Transcribing…</p><p class=\"ds-status ds-status-failed\">Failed: audio stream dropped</p>",
+      "css": ".ds-status { margin: 6px 0 0; font-size: 0.8125rem; font-variant-numeric: tabular-nums; } .ds-status-inflight { color: var(--color-action, #2563eb); animation: ds-ink-pulse 1.5s ease-in-out infinite; } .ds-status-failed { color: var(--color-danger, #d33a2f); } @keyframes ds-ink-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.9; } } @media (prefers-reduced-motion: reduce) { .ds-status-inflight { animation: none; opacity: 0.6; } }"
+    },
+    {
+      "name": "Echo Logo",
+      "kind": "custom",
+      "refersTo": "nav-link",
+      "description": "Concentric-arc mark: ink tile, paper dot, two arcs with the outer at 55% opacity — the echo.",
+      "html": "<span class=\"ds-logo-lockup\"><svg viewBox=\"0 0 32 32\" width=\"22\" height=\"22\" aria-hidden=\"true\"><rect width=\"32\" height=\"32\" rx=\"7\" fill=\"#1f1e1c\"/><circle cx=\"13\" cy=\"16\" r=\"3.2\" fill=\"#fbfbfa\"/><path d=\"M19 10.5 A7.5 7.5 0 0 1 19 21.5\" fill=\"none\" stroke=\"#fbfbfa\" stroke-width=\"2.2\" stroke-linecap=\"round\"/><path d=\"M23 7.5 A12 12 0 0 1 23 24.5\" fill=\"none\" stroke=\"#fbfbfa\" stroke-width=\"2.2\" stroke-linecap=\"round\" opacity=\"0.55\"/></svg><span class=\"ds-logo-word\">Echo</span></span>",
+      "css": ".ds-logo-lockup { display: inline-flex; align-items: center; gap: 10px; } .ds-logo-word { font-size: 1rem; font-weight: 600; letter-spacing: -0.025em; color: var(--color-ink, #1f1e1c); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Category Standard",
+    "overview": "Echo is an AI meeting notetaker that looks the way the category is supposed to look, executed at full craft. The world is a warm near-white page carrying ink-dark text, structured by hairline dividers rather than boxes, with exactly one blue that means \"act\" and one red that means \"failed\". This is a user-chosen canon: an expressive galley-proof serif world was built first and rejected (seed 6280867b); basic and understandable beats expressive. Nothing on screen asks to be admired; everything asks to be read.\n\nDensity is a single reading column (42rem) that holds the wordmark, one search-or-ask input, and a flat divided list of meetings. The synthesis answer is the only content that earns a full white panel; everything else sits directly on the paper ground. Motion exists only as meaning: text lines settle in as notes arrive, statuses pulse while the pipeline works, and everything respects prefers-reduced-motion.",
+    "keyCharacteristics": [
+      "One warm near-white ground, white panels only where content is \"served\" (input, synthesis answer)",
+      "Hairline dividers (1px at 10% ink) do all the structural work; no card grids",
+      "Inter Variable for every glyph, 15px base, tight semibold headings",
+      "One action blue used sparingly: links, statuses, focus, and a single filled button",
+      "Icons are hand-drawn inline SVG at ~1.6 stroke with round caps; never a glyph font or icon package",
+      "Copy uses middots (·) as separators and never an em dash"
+    ],
+    "rules": [
+      { "name": "The One Blue Rule", "body": "Action Blue is the entire accent system. If something is interactive or in flight, it may be blue; nothing else may. It fills at most one button per screen.", "section": "colors" },
+      { "name": "The Translucent Hairline Rule", "body": "Borders and dividers are always rgb(31 30 28 / 0.1) — ink at 10%, never an opaque gray. Hover and active tints are the same ink at 3–6%.", "section": "colors" },
+      { "name": "The Sentence Case Rule", "body": "Every heading, button, and status is sentence case. No uppercase labels, no kickers or eyebrows, no letterspaced smallcaps.", "section": "typography" },
+      { "name": "The Middot Rule", "body": "Meta fragments join with a spaced middot (\"14 Aug, 15:02 · 4m 12s\"). Copy never uses an em dash.", "section": "typography" },
+      { "name": "The One Shadow Rule", "body": "0 1px 2px rgb(31 30 28 / 0.04) is the entire shadow vocabulary at rest. Anything needing more separation gets a hairline or a panel background instead.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep every screen inside the 42rem column with hairline-divided flat lists; the white panel treatment is reserved for the input and the synthesis answer.",
+      "Do draw new icons inline as SVG at ~1.6 stroke with round linecaps, colored via currentColor or the token variables.",
+      "Do use the exact status vocabulary: \"Transcribing…\", \"Writing notes…\", \"Failed: <error>\", \"Loading…\" — pulsing opacity for in-flight, static red for failure.",
+      "Do join meta fragments with \" · \" and keep numbers tabular (.meta handles both the size and tabular-nums).",
+      "Do give every animation a prefers-reduced-motion fallback, as set-line, ink-pulse, and rec-pulse already have."
+    ],
+    "donts": [
+      "Don't introduce a second accent, a gradient, or a filled colored surface; blue text/ring is the ceiling for everything except the single Ask button.",
+      "Don't box content into cards or add shadows beyond 0 1px 2px rgb(31 30 28 / 0.04); separation comes from hairlines and whitespace.",
+      "Don't use uppercase labels, kickers/eyebrows, letterspaced headings, or any typeface other than Inter Variable.",
+      "Don't use em dashes in copy, spinners for progress, or icon fonts / icon packages.",
+      "Don't use pure #000 text or opaque gray borders; ink is #1f1e1c and lines are translucent ink."
+    ]
+  }
+}
