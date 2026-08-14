@@ -9,6 +9,7 @@ const TASK_LABELS = {
   embed: 'Embed',
   rerank: 'Rerank',
   synthesis: 'Synthesis',
+  chat: 'Meeting chat',
 }
 
 const PROVIDER_LABELS = {
