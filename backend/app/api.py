@@ -93,6 +93,34 @@ def graph(request: Request):
     return build_graph(request.app.state.store)
 
 
+SAMPLE_RATE = 16000
+LIVE_WINDOW_S = 10
+LIVE_WINDOW_BYTES = SAMPLE_RATE * 2 * LIVE_WINDOW_S
+
+
+async def _transcribe_window(app, meeting_id: str, pcm: bytes, index: int, live: dict) -> None:
+    """Transcribe one window while recording continues.
+
+    Windows finish out of order, so results are keyed by index and the stored
+    transcript is rebuilt in order each time one lands. This is a live preview:
+    process_meeting re-transcribes the whole recording at stop, which is what
+    the notes are built from - per-window speaker labels are independent of each
+    other, so only the full pass gives consistent diarization.
+    """
+    try:
+        turns = await app.state.router.transcribe(pcm_to_wav(pcm))
+    except Exception as exc:
+        print(f"[live] window {index} failed: {exc}", flush=True)
+        return
+
+    live[index] = turns
+    text = " ".join(t.text for t in turns).strip()
+    print(f"[live] +{index * LIVE_WINDOW_S}s: {text[:160]}", flush=True)
+
+    ordered = [t for i in sorted(live) for t in live[i]]
+    app.state.store.update_meeting(meeting_id, transcript=ordered)
+
+
 def pcm_to_wav(pcm: bytes, rate: int = 16000) -> bytes:
     buf = io.BytesIO()
     with wave.open(buf, "wb") as w:
@@ -110,6 +138,10 @@ async def device_stream(ws: WebSocket):
     agent_id = DEFAULT_AGENT
     frames = bytearray()
     meeting_id = None
+    pending = bytearray()          # not yet sent to a live window
+    live: dict[int, list] = {}     # window index -> turns
+    live_tasks: list = []
+    window_index = 0
     try:
         while True:
             msg = await ws.receive()
@@ -117,6 +149,16 @@ async def device_stream(ws: WebSocket):
                 break
             if msg.get("bytes") is not None:
                 frames.extend(msg["bytes"])
+                pending.extend(msg["bytes"])
+
+                # Fire each full window off concurrently so a slow ASR call
+                # never stalls the audio stream.
+                while len(pending) >= LIVE_WINDOW_BYTES and meeting_id is not None:
+                    window = bytes(pending[:LIVE_WINDOW_BYTES])
+                    del pending[:LIVE_WINDOW_BYTES]
+                    live_tasks.append(asyncio.create_task(
+                        _transcribe_window(ws.app, meeting_id, window, window_index, live)))
+                    window_index += 1
             elif msg.get("text") is not None:
                 data = json.loads(msg["text"])
                 if meeting_id is None:
@@ -136,6 +178,11 @@ async def device_stream(ws: WebSocket):
                 await ws.send_json({"type": "ack", "id": meeting_id, "agent": agent.id})
     except WebSocketDisconnect:
         pass
+    # Let any in-flight live windows settle before the full pass overwrites
+    # their partial transcript.
+    if live_tasks:
+        await asyncio.gather(*live_tasks, return_exceptions=True)
+
     if meeting_id is not None:
         if frames:
             print(f"[device] stream ended, {len(frames)} bytes "
