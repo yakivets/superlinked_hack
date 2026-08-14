@@ -4,3 +4,9 @@ __pycache__/
 *.pyc
 notetaker.db
 *.wav
+
+# arduino-cli build staging (generated from firmware/)
+sketch/
+recordings/
+firmware/secrets.h
+HACK.txt
