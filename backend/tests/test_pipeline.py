@@ -9,16 +9,18 @@ from app.store import Store
 class FakeRouter:
     def __init__(self, fail_transcribe=False):
         self.fail_transcribe = fail_transcribe
+        self.seen_agent = None
 
     async def transcribe(self, wav_bytes):
         if self.fail_transcribe:
             raise RuntimeError("asr down")
         return [SpeakerTurn("Speaker 1", "we ship Monday")]
 
-    async def generate_notes(self, transcript_text):
+    async def generate_notes(self, transcript_text, agent_id=None, duration_s: float = 0.0):
+        self.seen_agent = agent_id
         return Notes(summary="ship Monday", decisions=["ship Monday"], open_questions=[])
 
-    async def extract(self, transcript_text):
+    async def extract(self, transcript_text, agent_id=None):
         return Entities(
             action_items=[ActionItem("ship", "Speaker 1")], people=[], dates=["Monday"], topics=["release"]
         )

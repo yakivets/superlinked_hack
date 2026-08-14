@@ -1,5 +1,7 @@
 import httpx
 
+from app import routing_log
+from app.agents import get_agent
 from app.config import settings
 from app.inference import EXTRACT_PROMPT, NOTES_PROMPT
 from app.models import Entities, Notes, parse_json_block
@@ -22,52 +24,66 @@ class SIEProvider:
     async def transcribe(self, wav_bytes: bytes):
         raise NotImplementedError("SIE ASR not wired; cloud handles transcription")
 
-    async def generate_notes(self, transcript_text: str) -> Notes:
-        resp = await self.client.post(
-            "/v1/chat/completions",
-            json={
-                "model": GENERATE_MODEL,
-                "messages": [{"role": "user", "content": NOTES_PROMPT.format(transcript=transcript_text)}],
-                "max_tokens": 1500,
-            },
-            headers=self._headers(),
-        )
+    async def generate_notes(self, transcript_text: str, agent_id=None, duration_s: float = 0.0) -> Notes:
+        agent = get_agent(agent_id)
+        model = agent.model_for(duration_s)
+        prompt = f"{agent.context}\n\n{NOTES_PROMPT.format(transcript=transcript_text)}"
+        with routing_log.timed("notes", "sie", model, agent=agent.id, duration_s=round(duration_s, 1)):
+            resp = await self.client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 1500,
+                },
+                headers=self._headers(),
+            )
         resp.raise_for_status()
         raw = resp.json()["choices"][0]["message"]["content"]
         return Notes.from_dict(parse_json_block(raw))
 
-    async def extract(self, transcript_text: str) -> Entities:
+    async def extract(self, transcript_text: str, agent_id=None) -> Entities:
         # gliner_multi-v2.1 missed task spans in the live smoke test, so
         # extract uses the same chat-completions + EXTRACT_PROMPT pattern as
         # generate_notes instead of the /v1/extract endpoint.
-        resp = await self.client.post(
-            "/v1/chat/completions",
-            json={
-                "model": GENERATE_MODEL,
-                "messages": [{"role": "user", "content": EXTRACT_PROMPT.format(transcript=transcript_text)}],
-                "max_tokens": 1500,
-            },
-            headers=self._headers(),
+        agent = get_agent(agent_id)
+        prompt = (
+            f"{agent.context}\n\nPay particular attention to: {', '.join(agent.labels)}.\n\n"
+            f"{EXTRACT_PROMPT.format(transcript=transcript_text)}"
         )
+        # Extraction is narrow and structured, so it stays on the fast model even
+        # when the agent uses a heavier one for notes.
+        with routing_log.timed("extract", "sie", GENERATE_MODEL, agent=agent.id):
+            resp = await self.client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": GENERATE_MODEL,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 1500,
+                },
+                headers=self._headers(),
+            )
         resp.raise_for_status()
         raw = resp.json()["choices"][0]["message"]["content"]
         return Entities.from_dict(parse_json_block(raw))
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        resp = await self.client.post(
-            f"/v1/encode/{ENCODE_MODEL}",
-            json={"items": [{"text": t} for t in texts]},
-            headers=self._headers(),
-        )
+        with routing_log.timed("embed", "sie", ENCODE_MODEL, items=len(texts)):
+            resp = await self.client.post(
+                f"/v1/encode/{ENCODE_MODEL}",
+                json={"items": [{"text": t} for t in texts]},
+                headers=self._headers(),
+            )
         resp.raise_for_status()
         return [item["dense"]["values"] for item in resp.json()["items"]]
 
     async def rerank(self, query: str, docs: list[str]) -> list[float] | None:
-        resp = await self.client.post(
-            f"/v1/score/{SCORE_MODEL}",
-            json={"query": {"text": query}, "items": [{"text": d} for d in docs]},
-            headers=self._headers(),
-        )
+        with routing_log.timed("rerank", "sie", SCORE_MODEL, docs=len(docs)):
+            resp = await self.client.post(
+                f"/v1/score/{SCORE_MODEL}",
+                json={"query": {"text": query}, "items": [{"text": d} for d in docs]},
+                headers=self._headers(),
+            )
         resp.raise_for_status()
         scores = sorted(resp.json()["scores"], key=lambda s: int(s["item_id"].split("-")[1]))
         return [s["score"] for s in scores]

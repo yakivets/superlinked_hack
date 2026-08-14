@@ -7,6 +7,8 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, W
 from fastapi.websockets import WebSocketDisconnect
 from pydantic import BaseModel
 
+from app import routing_log
+from app.agents import AGENT_ORDER, AGENTS, DEFAULT_AGENT, get_agent
 from app.pipeline import process_meeting
 from app.search import search_meetings
 from app.synthesis import build_graph, synthesize
@@ -19,18 +21,45 @@ class SynthesisRequest(BaseModel):
     k: int = 5
 
 
-def _kick(request_app, meeting_id: str, wav_bytes: bytes):
+def _kick(request_app, meeting_id: str, wav_bytes: bytes, agent_id: str | None = None):
     asyncio.create_task(
-        process_meeting(request_app.state.store, request_app.state.router, meeting_id, wav_bytes)
+        process_meeting(request_app.state.store, request_app.state.router,
+                        meeting_id, wav_bytes, agent_id)
     )
 
 
+@router.get("/agents")
+def list_agents():
+    """The agent roster, in the order the device's encoder cycles through them."""
+    return {
+        "agents": [
+            {
+                "id": a.id,
+                "name": a.name,
+                "notes_model": a.notes_model,
+                "long_model": a.long_model,
+                "labels": a.labels,
+            }
+            for a in (AGENTS[k] for k in AGENT_ORDER)
+        ],
+        "default": DEFAULT_AGENT,
+    }
+
+
+@router.get("/routing")
+def get_routing():
+    """Which model served which call - the routing dashboard feed."""
+    return {"summary": routing_log.summary(), "calls": routing_log.entries()}
+
+
 @router.post("/meetings/upload", status_code=202)
-async def upload_meeting(request: Request, file: UploadFile = File(...), title: str = Form("Untitled meeting")):
+async def upload_meeting(request: Request, file: UploadFile = File(...),
+                         title: str = Form("Untitled meeting"),
+                         agent: str = Form(DEFAULT_AGENT)):
     wav_bytes = await file.read()
     meeting_id = request.app.state.store.create_meeting(title)
-    _kick(request.app, meeting_id, wav_bytes)
-    return {"id": meeting_id}
+    _kick(request.app, meeting_id, wav_bytes, agent)
+    return {"id": meeting_id, "agent": get_agent(agent).id}
 
 
 @router.get("/meetings")
@@ -78,6 +107,7 @@ def pcm_to_wav(pcm: bytes, rate: int = 16000) -> bytes:
 async def device_stream(ws: WebSocket):
     await ws.accept()
     title = "Device meeting"
+    agent_id = DEFAULT_AGENT
     frames = bytearray()
     meeting_id = None
     try:
@@ -89,18 +119,24 @@ async def device_stream(ws: WebSocket):
                 frames.extend(msg["bytes"])
             elif msg.get("text") is not None:
                 data = json.loads(msg["text"])
-                if "title" in data and meeting_id is None:
-                    title = data["title"]
+                if meeting_id is None:
+                    # Only honoured before the meeting exists: the device sends
+                    # its encoder selection as the first frame.
+                    if "title" in data:
+                        title = data["title"]
+                    if "agent" in data:
+                        agent_id = get_agent(data["agent"]).id
                 if data.get("event") == "stop":
                     break
             if meeting_id is None and msg.get("type") == "websocket.receive":
+                agent = get_agent(agent_id)
                 meeting_id = ws.app.state.store.create_meeting(title)
-                await ws.send_json({"type": "ack", "id": meeting_id})
+                await ws.send_json({"type": "ack", "id": meeting_id, "agent": agent.id})
     except WebSocketDisconnect:
         pass
     if meeting_id is not None:
         if frames:
-            _kick(ws.app, meeting_id, pcm_to_wav(bytes(frames)))
+            _kick(ws.app, meeting_id, pcm_to_wav(bytes(frames)), agent_id)
             final_status = "processing"
         else:
             ws.app.state.store.update_meeting(meeting_id, status="error", error="no audio received")

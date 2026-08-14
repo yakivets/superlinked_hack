@@ -4,6 +4,7 @@ import logging
 
 import httpx
 
+from app import routing_log
 from app.config import settings
 from app.models import (
     Entities,
@@ -95,20 +96,34 @@ class CloudProvider:
         )
         return parse_speaker_turns(raw)
 
-    async def generate_notes(self, transcript_text: str) -> Notes:
-        raw = await self.chat("qwen3.7-flash", NOTES_PROMPT.format(transcript=transcript_text))
+    async def generate_notes(self, transcript_text: str, agent_id=None, duration_s: float = 0.0) -> Notes:
+        from app.agents import get_agent
+
+        agent = get_agent(agent_id)
+        prompt = f"{agent.context}\n\n{NOTES_PROMPT.format(transcript=transcript_text)}"
+        with routing_log.timed("notes", "cloud", "qwen3.7-flash", agent=agent.id):
+            raw = await self.chat("qwen3.7-flash", prompt)
         return Notes.from_dict(parse_json_block(raw))
 
-    async def extract(self, transcript_text: str) -> Entities:
-        raw = await self.chat("qwen3.7-flash", EXTRACT_PROMPT.format(transcript=transcript_text))
+    async def extract(self, transcript_text: str, agent_id=None) -> Entities:
+        from app.agents import get_agent
+
+        agent = get_agent(agent_id)
+        prompt = (
+            f"{agent.context}\n\nPay particular attention to: {', '.join(agent.labels)}.\n\n"
+            f"{EXTRACT_PROMPT.format(transcript=transcript_text)}"
+        )
+        with routing_log.timed("extract", "cloud", "qwen3.7-flash", agent=agent.id):
+            raw = await self.chat("qwen3.7-flash", prompt)
         return Entities.from_dict(parse_json_block(raw))
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        resp = await self.client.post(
-            "/compatible-mode/v1/embeddings",
-            json={"model": "qwen3.7-text-embedding", "input": texts},
-            headers=self._headers(),
-        )
+        with routing_log.timed("embed", "cloud", "qwen3.7-text-embedding", items=len(texts)):
+            resp = await self.client.post(
+                "/compatible-mode/v1/embeddings",
+                json={"model": "qwen3.7-text-embedding", "input": texts},
+                headers=self._headers(),
+            )
         resp.raise_for_status()
         data = sorted(resp.json()["data"], key=lambda d: d["index"])
         return [d["embedding"] for d in data]
@@ -140,11 +155,11 @@ class InferenceRouter:
     async def transcribe(self, wav_bytes):
         return await self._call("transcribe", wav_bytes)
 
-    async def generate_notes(self, transcript_text):
-        return await self._call("generate_notes", transcript_text)
+    async def generate_notes(self, transcript_text, agent_id=None, duration_s: float = 0.0):
+        return await self._call("generate_notes", transcript_text, agent_id, duration_s)
 
-    async def extract(self, transcript_text):
-        return await self._call("extract", transcript_text)
+    async def extract(self, transcript_text, agent_id=None):
+        return await self._call("extract", transcript_text, agent_id)
 
     async def embed(self, texts):
         return await self._call("embed", texts)

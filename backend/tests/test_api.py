@@ -14,10 +14,11 @@ class InstantRouter:
     async def transcribe(self, wav_bytes):
         return [SpeakerTurn("Speaker 1", "hello")]
 
-    async def generate_notes(self, transcript_text):
+    async def generate_notes(self, transcript_text, agent_id=None, duration_s: float = 0.0):
+        self.seen_agent = agent_id
         return Notes(summary="sum", decisions=[], open_questions=[])
 
-    async def extract(self, transcript_text):
+    async def extract(self, transcript_text, agent_id=None):
         from app.models import Entities
 
         return Entities(action_items=[], people=[], dates=[], topics=["t"])
