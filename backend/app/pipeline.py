@@ -2,7 +2,7 @@ import asyncio
 import io
 import wave
 
-from app import routing_log
+from app import chat, routing_log
 
 # Progress goes to stdout as well as the store: a meeting takes tens of seconds
 # to process and an empty terminal is indistinguishable from a hung one.
@@ -54,6 +54,9 @@ async def process_meeting(store, router, meeting_id: str, wav_bytes: bytes,
         embed_text = f"{meeting['title']}\n{notes.summary}\n{transcript_text}"
         vectors = await router.embed([embed_text])
         store.update_meeting(meeting_id, status="done", embedding=vectors[0])
+        # The live pass cached passages from a partial transcript; drop them so
+        # chat re-chunks the final one.
+        chat.invalidate(meeting_id)
         _log(f"[{short_id}] done\n")
     except Exception as exc:
         store.update_meeting(meeting_id, status="error", error=str(exc))

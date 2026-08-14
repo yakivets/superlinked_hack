@@ -3,6 +3,7 @@ import { getMeeting } from '../api'
 import {
   Meta, formatDate, formatTime, formatDuration, shortError, STATUS_WORDS,
 } from '../components/bits'
+import MeetingChat from '../components/MeetingChat'
 
 function BackArrow() {
   return (
@@ -105,6 +106,8 @@ export default function MeetingPage({ id }) {
       )}
 
       {tab === 'notes' || !hasTranscript ? <Notes m={m} inFlight={inFlight} /> : <Transcript m={m} />}
+
+      {!failed && <MeetingChat meetingId={id} ready={m.status === 'done'} />}
     </div>
   )
 }

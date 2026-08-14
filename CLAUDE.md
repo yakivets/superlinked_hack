@@ -123,6 +123,23 @@ when a term is ambiguous. Keep that property when editing prompts.
 `GET /agents` is the roster (same order as the device's dial), `GET /routing`
 is the live feed of which model served which call, with latency.
 
+## Per-meeting RAG chat
+
+`POST /meetings/{id}/chat` answers questions about one meeting **and the
+meetings connected to it** in the similarity graph (`GET /meetings/{id}/related`
+shows which). One question runs entirely on SIE: `encode` the question and
+passages, `score` to rerank the shortlist, `chat` to answer.
+
+Retrieval is passage-level, not whole-meeting: transcripts are chunked to ~700
+characters so answers can cite the specific turn and long meetings do not blow
+the context window. Passage embeddings are cached per meeting and invalidated
+when the pipeline replaces a live transcript with the final one — a stale cache
+would answer from the partial transcript.
+
+The prompt instructs the model to cite meeting titles and to say when the
+excerpts do not contain the answer, which it does in practice rather than
+inventing owners.
+
 **The agent list is duplicated in `firmware/ui.cpp` and `backend/app/agents.py`
 and the order must match** — the device sends an id string, so a mismatch means
 the wrong agent silently handles the meeting. `tests/test_agent_firmware_sync.py`

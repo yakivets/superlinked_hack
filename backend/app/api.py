@@ -7,7 +7,7 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, W
 from fastapi.websockets import WebSocketDisconnect
 from pydantic import BaseModel
 
-from app import routing_log
+from app import chat, routing_log
 from app.agents import AGENT_ORDER, AGENTS, DEFAULT_AGENT, get_agent
 from app.pipeline import process_meeting
 from app.search import search_meetings
@@ -19,6 +19,16 @@ router = APIRouter()
 class SynthesisRequest(BaseModel):
     question: str
     k: int = 5
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatRequest(BaseModel):
+    question: str
+    history: list[ChatMessage] = []
 
 
 def _kick(request_app, meeting_id: str, wav_bytes: bytes, agent_id: str | None = None):
@@ -46,6 +56,31 @@ def list_agents():
     }
 
 
+@router.post("/meetings/{meeting_id}/chat")
+async def chat_about_meeting(request: Request, meeting_id: str, body: ChatRequest):
+    """Ask a question about this meeting and the meetings related to it."""
+    meeting = request.app.state.store.get_meeting(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="no such meeting")
+    return await chat.answer(
+        request.app.state.store,
+        request.app.state.router,
+        meeting_id,
+        body.question,
+        [h.model_dump() for h in body.history],
+    )
+
+
+@router.get("/meetings/{meeting_id}/related")
+def related_meetings(request: Request, meeting_id: str):
+    """Which meetings the chat will pull context from."""
+    store = request.app.state.store
+    if not store.get_meeting(meeting_id):
+        raise HTTPException(status_code=404, detail="no such meeting")
+    ids = chat.related_meeting_ids(store, meeting_id)
+    return {"related": [{"id": m, "title": store.get_meeting(m)["title"]} for m in ids]}
+
+
 @router.get("/routing")
 def get_routing():
     """Which model served which call - the routing dashboard feed."""
@@ -57,9 +92,10 @@ async def upload_meeting(request: Request, file: UploadFile = File(...),
                          title: str = Form("Untitled meeting"),
                          agent: str = Form(DEFAULT_AGENT)):
     wav_bytes = await file.read()
-    meeting_id = request.app.state.store.create_meeting(title)
-    _kick(request.app, meeting_id, wav_bytes, agent)
-    return {"id": meeting_id, "agent": get_agent(agent).id}
+    resolved = get_agent(agent)
+    meeting_id = request.app.state.store.create_meeting(title, resolved.id)
+    _kick(request.app, meeting_id, wav_bytes, resolved.id)
+    return {"id": meeting_id, "agent": resolved.id}
 
 
 @router.get("/meetings")
@@ -172,7 +208,7 @@ async def device_stream(ws: WebSocket):
                     break
             if meeting_id is None and msg.get("type") == "websocket.receive":
                 agent = get_agent(agent_id)
-                meeting_id = ws.app.state.store.create_meeting(title)
+                meeting_id = ws.app.state.store.create_meeting(title, agent.id)
                 print(f"\n[device] connected, agent={agent.id}, meeting={meeting_id[:8]}",
                       flush=True)
                 await ws.send_json({"type": "ack", "id": meeting_id, "agent": agent.id})
