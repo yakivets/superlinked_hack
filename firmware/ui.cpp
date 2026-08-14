@@ -22,9 +22,13 @@ static const uint32_t FRAME_MS = 33;   // ~30fps; SPI draws are expensive
 enum View { VIEW_STATUS = 0, VIEW_STATS, VIEW_NET, VIEW_COUNT };
 
 // Must match backend/app/agents.py AGENT_ORDER.
-const char* const AGENT_IDS[]   = {"general", "fintech", "engineering", "standup"};
-const char* const AGENT_NAMES[] = {"General", "Fintech", "Engineering", "Standup"};
-const int AGENT_COUNT = 4;
+const char* const AGENT_IDS[] = {
+  "general", "fintech", "engineering", "standup", "sales", "interview", "legal"
+};
+const char* const AGENT_NAMES[] = {
+  "General", "Fintech", "Engineering", "Standup", "Sales", "Interview", "Legal"
+};
+const int AGENT_COUNT = 7;
 
 SPIClass mySPI(FSPI);
 Adafruit_ST7735 tft = Adafruit_ST7735(&mySPI, TFT_CS, TFT_DC, TFT_RST);
@@ -32,9 +36,15 @@ GFXcanvas16 canvas(W, H);
 RotaryEncoder encoder(ENC_CLK, ENC_DT, RotaryEncoder::LatchMode::TWO03);
 
 static int currentView = VIEW_STATUS;
-static int selectedAgent = 0;
+static int selectedAgent = 0;   // committed choice
+static int pendingAgent = 0;    // what the dial is browsing, while picking
+static bool picking = false;
 static long lastEncPos = 0;
 static uint32_t lastDraw = 0;
+
+// Encoder button is ACTIVE HIGH with a built-in pull-down.
+static bool lastBtnState = LOW;
+static unsigned long lastBtnTime = 0;
 
 // This panel is BGR: color565 takes (B, G, R), not (R, G, B).
 static uint16_t cBlack, cWhite, cGray, cRed, cGreen, cAmber;
@@ -65,20 +75,36 @@ void uiBegin() {
   tft.drawRGBBitmap(0, 0, canvas.getBuffer(), W, H);
 }
 
-// While idle the dial picks the agent; while recording it switches views, so a
-// meeting's agent cannot change underneath it once capture has started.
+// Press the dial to start picking an agent, turn to browse, press again to
+// commit. Turning outside picking mode just changes the view, so a stray nudge
+// can never change which agent handles a meeting.
 void uiTick(bool recording) {
   encoder.tick();
+
+  bool btn = digitalRead(ENC_BTN);
+  if (btn == HIGH && lastBtnState == LOW && (millis() - lastBtnTime > 150)) {
+    lastBtnTime = millis();
+    if (recording) {
+      // Agent is locked for the duration of a meeting.
+    } else if (picking) {
+      selectedAgent = pendingAgent;   // commit
+      picking = false;
+    } else {
+      pendingAgent = selectedAgent;   // start browsing from the current choice
+      picking = true;
+    }
+  }
+  lastBtnState = btn;
+
   long pos = encoder.getPosition();
   if (pos == lastEncPos) return;
-
   int delta = (pos > lastEncPos) ? 1 : -1;
   lastEncPos = pos;
 
-  if (recording) {
-    currentView = (currentView + delta + VIEW_COUNT) % VIEW_COUNT;
+  if (picking) {
+    pendingAgent = (pendingAgent + delta + AGENT_COUNT) % AGENT_COUNT;
   } else {
-    selectedAgent = (selectedAgent + delta + AGENT_COUNT) % AGENT_COUNT;
+    currentView = (currentView + delta + VIEW_COUNT) % VIEW_COUNT;
   }
 }
 
@@ -121,7 +147,7 @@ static void drawStatus(const UiState& st) {
 
   canvas.setCursor(4, 64);
   canvas.setTextColor(cGray);
-  canvas.print(st.recording ? "dial: change view" : "dial: pick agent");
+  canvas.print(st.recording ? "dial: change view" : "press dial: agent");
 }
 
 static void drawStats(const UiState& st) {
@@ -156,11 +182,49 @@ static void drawNet(const UiState& st) {
   canvas.print(st.wsUp ? "socket streaming" : "socket idle");
 }
 
+// Full-screen picker: previous / current / next, so turning the dial reads as
+// scrolling a list rather than a value flickering in place.
+static void drawPicker() {
+  canvas.setTextSize(1);
+  canvas.setTextColor(cGray);
+  canvas.setCursor(4, 4);
+  canvas.print("SELECT AGENT");
+  canvas.drawFastHLine(0, 15, W, cGray);
+
+  int prev = (pendingAgent - 1 + AGENT_COUNT) % AGENT_COUNT;
+  int next = (pendingAgent + 1) % AGENT_COUNT;
+
+  canvas.setTextColor(cGray);
+  canvas.setCursor(10, 22);
+  canvas.print(AGENT_NAMES[prev]);
+
+  canvas.setTextSize(2);
+  canvas.setTextColor(cAmber);
+  canvas.setCursor(4, 34);
+  canvas.printf(">%s", AGENT_NAMES[pendingAgent]);
+
+  canvas.setTextSize(1);
+  canvas.setTextColor(cGray);
+  canvas.setCursor(10, 54);
+  canvas.print(AGENT_NAMES[next]);
+
+  canvas.setCursor(4, 68);
+  canvas.setTextColor(cWhite);
+  canvas.printf("press to confirm  %d/%d", pendingAgent + 1, AGENT_COUNT);
+}
+
 void uiRender(const UiState& st) {
   if (millis() - lastDraw < FRAME_MS) return;
   lastDraw = millis();
 
   canvas.fillScreen(cBlack);
+
+  if (picking) {
+    drawPicker();
+    tft.drawRGBBitmap(0, 0, canvas.getBuffer(), W, H);
+    return;
+  }
+
   drawHeader(st);
 
   switch (currentView) {

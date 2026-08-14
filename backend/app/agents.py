@@ -80,12 +80,52 @@ AGENTS: dict[str, Agent] = {
         long_model=FAST_MODEL,       # standups are short by definition
         labels=["blocker", "owner", "status"],
     ),
+    "sales": Agent(
+        id="sales",
+        name="Sales",
+        context=(
+            "This is a sales or client call. Track objections raised, pricing and "
+            "scope discussion, competitors mentioned, and what happens next. Treat any "
+            "commitment about price, timeline or scope as a decision. An objection "
+            "nobody answered is an open question, not a decision."
+        ),
+        notes_model=FAST_MODEL,
+        long_model=FAST_LONG,
+        labels=["objection", "price", "competitor", "next_step", "decision_maker", "budget"],
+    ),
+    "interview": Agent(
+        id="interview",
+        name="Interview",
+        context=(
+            "This is a candidate interview. Summarise the evidence for and against the "
+            "candidate: skills actually demonstrated, relevant experience, and concerns "
+            "raised. Never credit a skill that was only claimed rather than shown, and "
+            "do not state a hiring recommendation the interviewers did not make."
+        ),
+        notes_model=DEEP_MODEL,      # judgement about people needs real reasoning
+        long_model=DEEP_LONG,
+        labels=["skill", "experience", "concern", "strength", "recommendation"],
+    ),
+    "legal": Agent(
+        id="legal",
+        name="Legal",
+        context=(
+            "This is a legal or contract discussion. Record obligations exactly as "
+            "stated, along with which party owes them and by when. Never invent or "
+            "tighten an obligation, and if a term is left ambiguous say so rather than "
+            "resolving it yourself."
+        ),
+        notes_model=DEEP_MODEL,      # precision matters more than latency here
+        long_model=DEEP_LONG,
+        labels=["obligation", "party", "clause", "deadline", "liability", "condition"],
+    ),
 }
 
 DEFAULT_AGENT = "general"
 
 # Stable order, so the device's encoder and the dashboard agree on the list.
-AGENT_ORDER = ["general", "fintech", "engineering", "standup"]
+# Mirrored in firmware/ui.cpp - the two MUST stay in sync.
+AGENT_ORDER = ["general", "fintech", "engineering", "standup", "sales", "interview", "legal"]
 
 
 def get_agent(agent_id: str | None) -> Agent:
