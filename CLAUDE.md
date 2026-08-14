@@ -7,8 +7,15 @@ questions across meetings.
 Built in parallel by two people:
 
 - `backend/` — FastAPI: ingest, pipeline, search, synthesis. See `backend/API.md`.
+- `frontend/` — "Echo" dashboard (Vite + React): meetings, search, synthesis,
+  similarity graph.
 - `firmware/` — ESP32-S3 capture node (Axiometa Genesis Mini).
 - `live_server.py` — standalone live-transcription rig for testing the device.
+
+The frontend does not yet consume `GET /agents` or `GET /routing`; those landed
+after it was built. The routing feed is the most demo-legible thing in the
+project and the brief explicitly recommends a routing dashboard, so surfacing it
+is the highest-value frontend work remaining.
 
 ## Where inference runs, and why
 
