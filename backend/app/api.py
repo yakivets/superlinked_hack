@@ -7,7 +7,7 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, W
 from fastapi.websockets import WebSocketDisconnect
 from pydantic import BaseModel
 
-from app import chat, routing_log
+from app import chat, relatedness, routing_log
 from app.agents import AGENT_ORDER, AGENTS, DEFAULT_AGENT, get_agent
 from app.pipeline import process_meeting
 from app.search import search_meetings
@@ -125,8 +125,15 @@ async def synthesis(request: Request, body: SynthesisRequest):
 
 
 @router.get("/graph")
-def graph(request: Request):
-    return build_graph(request.app.state.store)
+def graph(request: Request, threshold: float = relatedness.DEFAULT_THRESHOLD):
+    """Meeting similarity graph.
+
+    `threshold` is relatedness on a calibrated 0-1 scale, where 0 is a typical
+    pair of meetings in this corpus and 1 is the same meeting. Raise it for a
+    sparser graph of only the strongest threads.
+    """
+    threshold = min(max(threshold, 0.0), 1.0)
+    return build_graph(request.app.state.store, threshold)
 
 
 SAMPLE_RATE = 16000

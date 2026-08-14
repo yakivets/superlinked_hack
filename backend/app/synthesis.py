@@ -1,5 +1,6 @@
 from app import routing_log
-from app.search import cosine, search_meetings
+from app import relatedness
+from app.search import search_meetings
 
 SYNTHESIS_PROMPT = """You are an assistant answering a question by reasoning across several past meetings. Use ONLY the meeting records below. Cite meetings by title when relevant. Answer concisely.
 
@@ -42,28 +43,20 @@ async def synthesize(store, router, question: str, k: int = 5) -> dict:
     }
 
 
-def build_graph(store) -> dict:
+def build_graph(store, threshold: float = relatedness.DEFAULT_THRESHOLD) -> dict:
     embeddings = store.all_embeddings()
     meetings = {mid: store.get_meeting(mid) for mid, _ in embeddings}
-    nodes = [{"id": mid, "title": meetings[mid]["title"]} for mid, _ in embeddings]
-    edges = []
-    for i in range(len(embeddings)):
-        for j in range(i + 1, len(embeddings)):
-            (id_a, vec_a), (id_b, vec_b) = embeddings[i], embeddings[j]
-            w = cosine(vec_a, vec_b)
-            if w < 0.4:
-                continue
-
-            def tags(mid):
-                e = meetings[mid]["entities"] or {}
-                return set(e.get("topics", [])) | set(e.get("people", []))
-
-            edges.append(
-                {
-                    "source": id_a,
-                    "target": id_b,
-                    "weight": round(w, 3),
-                    "shared": sorted(tags(id_a) & tags(id_b)),
-                }
-            )
-    return {"nodes": nodes, "edges": edges}
+    nodes = [
+        {
+            "id": mid,
+            "title": meetings[mid]["title"],
+            "agent": meetings[mid].get("agent"),
+            "topics": (meetings[mid].get("entities") or {}).get("topics", []),
+        }
+        for mid, _ in embeddings
+    ]
+    return {
+        "nodes": nodes,
+        "edges": relatedness.build_edges(meetings, embeddings, threshold),
+        "threshold": threshold,
+    }

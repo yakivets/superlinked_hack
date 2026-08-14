@@ -8,13 +8,12 @@ Retrieval is passage-level rather than whole-meeting, so answers can cite the
 specific turn they came from and long meetings do not blow the context window.
 """
 
-from app import routing_log
+from app import relatedness, routing_log
 from app.agents import get_agent
 from app.search import cosine
 
 # Roughly a few speaker turns; small enough to cite, big enough to carry context.
 CHUNK_CHARS = 700
-RELATED_THRESHOLD = 0.4     # same cut-off the similarity graph uses
 MAX_RELATED = 4
 CANDIDATES = 24             # embedded candidates handed to the reranker
 TOP_PASSAGES = 8            # passages that actually reach the model
@@ -61,20 +60,14 @@ def chunk_meeting(meeting: dict) -> list[dict]:
 
 
 def related_meeting_ids(store, meeting_id: str, limit: int = MAX_RELATED) -> list[str]:
-    """Meetings linked to this one in the similarity graph, strongest first."""
-    embeddings = dict(store.all_embeddings())
-    target = embeddings.get(meeting_id)
-    if not target:
-        return []
+    """Meetings linked to this one, strongest first.
 
-    scored = [
-        (mid, cosine(target, vec))
-        for mid, vec in embeddings.items()
-        if mid != meeting_id
-    ]
-    scored = [(mid, s) for mid, s in scored if s >= RELATED_THRESHOLD]
-    scored.sort(key=lambda t: t[1], reverse=True)
-    return [mid for mid, _ in scored[:limit]]
+    Deliberately the same scoring the graph uses: what the chat reads from and
+    what the graph draws must never disagree.
+    """
+    embeddings = store.all_embeddings()
+    meetings = {mid: store.get_meeting(mid) for mid, _ in embeddings}
+    return relatedness.related_to(meetings, embeddings, meeting_id, limit)
 
 
 async def _passages_with_vectors(store, router, meeting_id: str):
