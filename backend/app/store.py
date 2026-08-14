@@ -53,10 +53,12 @@ class Store:
 
     def update_meeting(self, mid, *, status=None, transcript=None, notes=None,
                        entities=None, embedding=None, duration_s=None, error=None,
-                       agent=None):
+                       agent=None, title=None):
         sets, vals = [], []
         if agent is not None:
             sets.append("agent = ?"); vals.append(agent)
+        if title is not None:
+            sets.append("title = ?"); vals.append(title)
         if status is not None:
             sets.append("status = ?"); vals.append(status)
         if transcript is not None:
