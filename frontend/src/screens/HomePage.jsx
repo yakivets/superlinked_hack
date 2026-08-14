@@ -4,6 +4,7 @@ import {
   Meta, AnswerText,
   formatDate, formatTime, formatDuration, shortError, STATUS_WORDS,
 } from '../components/bits'
+import sloth from '../assets/brand/mascot_sloth.webp'
 
 export default function HomePage({ meetings }) {
   const [query, setQuery] = useState('')
@@ -174,7 +175,8 @@ function MeetingList({ meetings }) {
   if (meetings.length === 0) {
     return (
       <div className="mt-12 text-center">
-        <p className="text-[1.05rem] font-medium">No meetings yet</p>
+        <img src={sloth} alt="" width="150" height="150" className="mx-auto rounded-full" />
+        <p className="mt-4 text-[1.05rem] font-medium">No meetings yet</p>
         <p className="mx-auto mt-1.5 max-w-[38ch] leading-relaxed text-soft">
           Press record on the device and the meeting will appear here as it happens.
         </p>
