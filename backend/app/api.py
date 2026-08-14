@@ -131,14 +131,19 @@ async def device_stream(ws: WebSocket):
             if meeting_id is None and msg.get("type") == "websocket.receive":
                 agent = get_agent(agent_id)
                 meeting_id = ws.app.state.store.create_meeting(title)
+                print(f"\n[device] connected, agent={agent.id}, meeting={meeting_id[:8]}",
+                      flush=True)
                 await ws.send_json({"type": "ack", "id": meeting_id, "agent": agent.id})
     except WebSocketDisconnect:
         pass
     if meeting_id is not None:
         if frames:
+            print(f"[device] stream ended, {len(frames)} bytes "
+                  f"({len(frames) / 32000:.1f}s) -> processing", flush=True)
             _kick(ws.app, meeting_id, pcm_to_wav(bytes(frames)), agent_id)
             final_status = "processing"
         else:
+            print("[device] stream ended with NO AUDIO", flush=True)
             ws.app.state.store.update_meeting(meeting_id, status="error", error="no audio received")
             final_status = "error"
         try:
