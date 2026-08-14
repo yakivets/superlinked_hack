@@ -14,6 +14,14 @@ struct UiState {
   const char* ip;
 };
 
+// Agent ids must match backend/app/agents.py AGENT_ORDER.
+extern const char* const AGENT_IDS[];
+extern const char* const AGENT_NAMES[];
+extern const int AGENT_COUNT;
+
 void uiBegin();
-void uiTick();                      // poll the encoder; call every loop()
+void uiTick(bool recording);        // poll the encoder; call every loop()
 void uiRender(const UiState& st);   // throttled internally to ~30fps
+
+// Which agent the dial is currently on - sent to the backend on connect.
+const char* uiSelectedAgentId();

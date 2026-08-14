@@ -54,6 +54,8 @@ static uint32_t lastButtonMs = 0;
 static uint32_t lastBeatMs = 0;
 static uint32_t recStartMs = 0;
 static String localIp = "no ip";
+static const char* activeAgent = "general";
+static bool sentHello = false;
 
 static size_t ringUsed() {
   size_t h = ringHead, t = ringTail;
@@ -98,10 +100,18 @@ static void captureTask(void*) {
 
 static void onWsEvent(WStype_t type, uint8_t* payload, size_t len) {
   switch (type) {
-    case WStype_CONNECTED:
+    case WStype_CONNECTED: {
       wsUp = true;
-      Serial.println("ws connected");
+      // Must be the first message: the backend reads the agent from it and
+      // then creates the meeting, so it has to arrive before any audio.
+      char hello[96];
+      snprintf(hello, sizeof(hello),
+               "{\"agent\":\"%s\",\"title\":\"Device meeting\"}", activeAgent);
+      ws.sendTXT(hello);
+      sentHello = true;
+      Serial.printf("ws connected, sent agent=%s\n", activeAgent);
       break;
+    }
     case WStype_DISCONNECTED:
       wsUp = false;
       Serial.println("ws disconnected");
@@ -121,10 +131,14 @@ static void startMeeting() {
   recStartMs = millis();
   recording = true;
 
+  activeAgent = uiSelectedAgentId();   // locked for the whole meeting
+  sentHello = false;
+
   ws.begin(WS_HOST, WS_PORT, WS_PATH);
   ws.onEvent(onWsEvent);
   ws.setReconnectInterval(2000);
-  Serial.printf("REC start -> ws://%s:%u%s\n", WS_HOST, WS_PORT, WS_PATH);
+  Serial.printf("REC start agent=%s -> ws://%s:%u%s\n",
+                activeAgent, WS_HOST, WS_PORT, WS_PATH);
 }
 
 static void stopMeeting() {
@@ -161,8 +175,9 @@ static void handleButton() {
 static void heartbeat() {
   if (millis() - lastBeatMs < BEAT_MS) return;
   lastBeatMs = millis();
-  Serial.printf("[beat] wifi=%d ws=%d rec=%d mic=%d buffered=%u frames=%lu\n",
+  Serial.printf("[beat] wifi=%d ws=%d rec=%d mic=%d agent=%s buffered=%u frames=%lu\n",
                 WiFi.status() == WL_CONNECTED, wsUp, recording, micReady,
+                recording ? activeAgent : uiSelectedAgentId(),
                 (unsigned)ringUsed(), (unsigned long)framesSent);
 }
 
@@ -208,7 +223,7 @@ void setup() {
 }
 
 void loop() {
-  uiTick();
+  uiTick(recording);
   handleButton();
   heartbeat();
   if (recording || wsUp) ws.loop();
@@ -224,7 +239,9 @@ void loop() {
   st.ip         = localIp.c_str();
   uiRender(st);
 
-  if (recording && wsUp && ringUsed() >= FRAME_BYTES) {
+  // Hold audio until the hello has gone out, so the backend never creates the
+  // meeting from a binary frame and misses the agent selection.
+  if (recording && wsUp && sentHello && ringUsed() >= FRAME_BYTES) {
     ringRead(frameBuf, FRAME_BYTES);
     if (ws.sendBIN(frameBuf, FRAME_BYTES)) framesSent++;
 

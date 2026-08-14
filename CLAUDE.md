@@ -64,16 +64,61 @@ Credentials are compiled in, so they must exist before the build:
 and the laptop's IP. `secrets.h` is gitignored. Changing Wi-Fi or the laptop's
 IP requires a recompile and reflash — there is no runtime configuration.
 
+## Agents and model routing
+
+An **agent** decides how a meeting is understood — the domain context given to
+the model, which entity labels matter, and **which SIE model writes the notes**.
+The dial on the device picks one while idle; it locks for the duration of a
+meeting so it cannot change underneath a recording.
+
+| Agent | Notes model | Rationale |
+|---|---|---|
+| General | `Qwen/Qwen3.5-4B` | balanced default |
+| Fintech | `Qwen/Qwen3.6-27B` | figures and compliance need real reasoning |
+| Engineering | `Qwen/Qwen3.5-4B` | fast, well-structured domain |
+| Standup | `Qwen/Qwen3.5-4B` | short meetings, speed over depth |
+
+Extraction stays on the fast model even when notes use the heavy one — it is a
+narrow structured task. Meetings over 15 minutes escalate to `:long-context`.
+
+`GET /agents` is the roster (same order as the device's dial), `GET /routing`
+is the live feed of which model served which call, with latency.
+
+**The agent list is duplicated in `firmware/ui.cpp` and `backend/app/agents.py`
+and the order must match** — the device sends an id string, so a mismatch means
+the wrong agent silently handles the meeting.
+
+### What SIE actually offers (verified live 2026-08-14)
+
+Probed via `GET /v1/models` — 61 models. What works and what does not:
+
+- **Works:** `Qwen3.5-4B` and `Qwen3.6-27B` chat (plus `:thinking`,
+  `:long-context` variants), `Qwen3-Embedding-4B` (2560d), `BGE-m3` (1024d),
+  `Qwen3-Reranker-0.6B` / `-4B`.
+- **Does not work:** `/v1/audio/transcriptions` with
+  `openai/whisper-large-v3-turbo` returns 500 on real audio, so **ASR stays on
+  Alibaba** — which also gives speaker diarization, the honest justification for
+  that offload.
+- **Not provisioned:** domain-tuned embedding variants such as
+  `BAAI/bge-m3:banking` return 503 `QUEUE_UNAVAILABLE`. Agent specialisation is
+  therefore prompt + model + labels, not per-domain embeddings.
+
 ## Device → backend contract
 
 One WebSocket per meeting, `/ws/device`:
 
 ```
-button press  -> connect, stream binary PCM frames continuously
-server        -> {"type":"ack","id":"<meeting_id>"}
+button press  -> connect
+device        -> {"agent":"fintech","title":"Device meeting"}   FIRST message
+server        -> {"type":"ack","id":"<meeting_id>","agent":"fintech"}
+device        -> binary PCM frames, continuously
 button press  -> {"event":"stop"}, then disconnect
 server        -> {"type":"status","status":"processing"}
 ```
+
+The hello must arrive before any audio: the backend creates the meeting from the
+first message it receives, and reads the agent from that message. The firmware
+holds audio back until the hello has gone out for exactly this reason.
 
 Capture runs on core 0 writing into a PSRAM ring buffer; the main loop drains it
 to the socket. That split is deliberate — a slow or stalled network must never
