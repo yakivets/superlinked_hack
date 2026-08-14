@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getMeeting } from '../api'
+import MeetingChat from '../components/MeetingChat'
 import {
   Meta, formatDate, formatTime, formatDuration, STATUS_WORDS,
 } from '../components/bits'
@@ -144,6 +145,8 @@ export default function MeetingPage({ id }) {
       )}
 
       {m.transcript?.length > 0 && <Transcript turns={m.transcript} />}
+
+      <MeetingChat meetingId={id} ready={m.status === 'done'} />
     </div>
   )
 }

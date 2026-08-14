@@ -22,6 +22,18 @@ export async function askSynthesis(question, k = 5) {
   return res.json()
 }
 
+export const relatedMeetings = (id) => get(`/meetings/${id}/related`)
+
+export async function askMeeting(id, question, history = []) {
+  const res = await fetch(`${BASE}/meetings/${id}/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question, history }),
+  })
+  if (!res.ok) throw new Error(`${res.status} on /meetings/${id}/chat`)
+  return res.json()
+}
+
 export async function uploadWav(blob, title) {
   const form = new FormData()
   form.append('file', blob, 'recording.wav')
