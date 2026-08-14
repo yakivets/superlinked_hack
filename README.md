@@ -6,10 +6,15 @@ across meetings, and a cross-meeting synthesis and graph view.
 
 ## Stack
 
-Alibaba Cloud Qwen omni-flash for transcription and Qwen chat models for
-notes and synthesis, with Superlinked SIE (hosted) as an alternate provider
-for notes, extraction, embedding, and reranking. Provider routing is
-per-primitive and configurable via env vars.
+Superlinked SIE (hosted) is the primary inference engine: it writes the notes,
+extracts entities, embeds every meeting and reranks search results. Alibaba
+Cloud Model Studio handles the two things SIE cannot — speaker-diarized
+transcription (`qwen3.5-omni-flash`) and cross-meeting synthesis
+(`qwen3.8-max`). That works out at roughly six SIE calls per two Alibaba calls
+for a meeting.
+
+Routing is per-primitive and configurable via `PROVIDER_*` env vars, and each
+provider falls back to the other on failure.
 
 ## Running it
 
@@ -28,8 +33,14 @@ See `backend/API.md` for the full HTTP and WebSocket contract.
 An Axiometa Genesis Mini (ESP32-S3) with a PDM microphone, a button, a rotary
 encoder and a small IPS display. Pressing the button opens a WebSocket to the
 backend and streams 16 kHz mono PCM continuously until you press it again; the
-display shows recording state, streaming stats and network status, and the
-encoder switches between those views.
+display shows recording state, streaming stats and network status.
+
+The dial picks the **agent** that will handle the meeting: press it to open the
+picker, turn to browse, press again to commit. The agent decides the domain
+context the model is given, which entities are extracted, and which SIE model
+writes the notes — a legal or fintech meeting routes to `Qwen3.6-27B`, a standup
+to the faster `Qwen3.5-4B`. `GET /agents` returns the same roster for the
+dashboard, and `GET /routing` shows which model actually served each call.
 
 Firmware sources are in `firmware/`. Credentials are compiled in, so set them
 first:
