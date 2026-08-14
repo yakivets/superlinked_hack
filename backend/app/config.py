@@ -15,6 +15,7 @@ class Settings:
     )
     alibaba_api_key: str = os.getenv("ALIBABA_API_KEY", "")
     sie_base_url: str = os.getenv("SIE_BASE_URL", "http://localhost:8080")
+    sie_api_key: str = os.getenv("SIE_API_KEY", "")
     db_path: str = os.getenv("DB_PATH", "notetaker.db")
     # default everything to cloud (verified); Task 8 flips primitives to sie
     providers: dict = field(
