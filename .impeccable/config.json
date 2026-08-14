@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font-size",
+        "value": "16.5px",
+        "createdAt": "2026-08-14T13:28:18.964Z",
+        "reason": "documenter: graph-local SVG label size for projector legibility, recorded in DESIGN.md as not a type-ramp step; finish review shipped it"
+      }
+    ]
+  }
+}
