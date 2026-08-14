@@ -5,7 +5,17 @@ import numpy as np
 
 
 def cosine(a, b) -> float:
+    """Cosine similarity, 0.0 for anything incomparable.
+
+    Vectors of different lengths come from different embedding models - switching
+    providers leaves older rows behind at the old dimension. Those are not
+    comparable at all, so they score 0 rather than raising: one stale row used to
+    take down search, the graph and synthesis together. Use reembed.py to bring
+    old rows onto the current model.
+    """
     va, vb = np.asarray(a, dtype=float), np.asarray(b, dtype=float)
+    if va.shape != vb.shape or va.size == 0:
+        return 0.0
     denom = float(np.linalg.norm(va) * np.linalg.norm(vb))
     return float(va @ vb / denom) if denom else 0.0
 
