@@ -27,14 +27,25 @@ MIN_CORPUS_FOR_BASELINE = 5
 # one meeting repeated); clamp rather than produce nonsense scores.
 BASELINE_BOUNDS = (0.20, 0.90)
 
-W_SEMANTIC, W_TOPICS, W_PEOPLE = 0.65, 0.25, 0.10
+# Signals combine as independent evidence rather than a weighted average: an
+# interview and a budget review that both concern the same named person are
+# genuinely related even though their content is not similar at all, and an
+# average lets the one strong signal be drowned by the weak ones. Each signal
+# has a ceiling on how much it can carry alone.
+CAP_SEMANTIC = 1.00      # near-identical content is sufficient on its own
+CAP_PEOPLE = 0.85        # a shared full name is strong, if not quite conclusive
+CAP_TOPICS = 0.70        # topics are generic enough to need corroboration
 
-# Measured on real meetings: a re-upload of the same recording scores ~0.88,
-# two distinct meetings in one thread ~0.45-0.51, unrelated meetings ~0. A
-# threshold of 0.7 would therefore only ever link near-duplicates, so the
-# default sits just under the observed thread band. Tunable per request via
+# A shared full name identifies a person; a shared first name might be two
+# different Alexes.
+FULL_NAME_EVIDENCE = 1.0
+GIVEN_NAME_EVIDENCE = 0.5
+
+# Measured on real meetings: a re-upload of the same recording scores ~0.97, two
+# meetings in one thread ~0.68, an interview and a hiring decision about the same
+# named person ~0.86, unrelated meetings ~0. Tunable per request via
 # GET /graph?threshold=
-DEFAULT_THRESHOLD = 0.45
+DEFAULT_THRESHOLD = 0.50
 
 
 import re
@@ -69,6 +80,21 @@ def _tokens(phrase: str) -> set[str]:
             continue
         out.add(w[:-1] if w.endswith("s") and len(w) > 3 else w)
     return out
+
+
+def people_evidence(a: set[str], b: set[str]) -> float:
+    """How strongly a shared cast of people links two meetings.
+
+    Deliberately not Jaccard. One meeting naming only the candidate and another
+    naming the candidate plus three colleagues still points at the same person;
+    dividing by the union would score that as weak.
+    """
+    shared = a & b
+    if not shared:
+        return 0.0
+    if any(" " in name for name in shared):
+        return FULL_NAME_EVIDENCE
+    return GIVEN_NAME_EVIDENCE
 
 
 def topic_similarity(a: set[str], b: set[str]) -> float:
@@ -149,19 +175,19 @@ def score_pair(meeting_a: dict, meeting_b: dict,
     topics_a, people_a = _tags(meeting_a)
     topics_b, people_b = _tags(meeting_b)
     topic_overlap = topic_similarity(topics_a, topics_b)
-    people_overlap = jaccard(people_a, people_b)
+    people_overlap = people_evidence(people_a, people_b)
 
-    # Only score signals that exist for both meetings, then renormalise. Plenty
-    # of meetings name nobody; treating that as zero overlap would count missing
-    # evidence as evidence against, and cap an identical pair below 1.
-    terms = [(W_SEMANTIC, semantic)]
-    if topics_a and topics_b:
-        terms.append((W_TOPICS, topic_overlap))
-    if people_a and people_b:
-        terms.append((W_PEOPLE, people_overlap))
-
-    total_weight = sum(w for w, _ in terms)
-    score = sum(w * v for w, v in terms) / total_weight
+    # Noisy-OR: any signal can carry the pair on its own, up to its ceiling, and
+    # a signal that is simply absent contributes nothing rather than counting
+    # against. Meetings that name nobody are not penalised for it.
+    remaining = 1.0
+    for cap, value in (
+        (CAP_SEMANTIC, semantic),
+        (CAP_PEOPLE, people_overlap),
+        (CAP_TOPICS, topic_overlap),
+    ):
+        remaining *= 1.0 - cap * value
+    score = 1.0 - remaining
     return {
         "score": round(score, 3),
         "semantic": round(semantic, 3),

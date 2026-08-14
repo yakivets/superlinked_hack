@@ -7,6 +7,30 @@ import threadsArt from '../assets/brand/icon_threads.webp'
 const W = 1080
 const H = 560
 
+// Pinned node positions survive navigation: dragging the graph into a readable
+// shape is work, and losing it on every visit makes the page feel broken.
+const PINS_KEY = 'threads.pins.v1'
+
+function loadPins() {
+  try {
+    return JSON.parse(localStorage.getItem(PINS_KEY)) ?? {}
+  } catch {
+    return {}
+  }
+}
+
+function savePins(nodes) {
+  try {
+    const pins = {}
+    for (const n of nodes) {
+      if (n.fx != null && n.fy != null) pins[n.id] = { fx: n.fx, fy: n.fy }
+    }
+    localStorage.setItem(PINS_KEY, JSON.stringify(pins))
+  } catch {
+    // A full or blocked localStorage must not break the graph.
+  }
+}
+
 export default function ThreadsPage() {
   const [graph, setGraph] = useState(null)
   const [positions, setPositions] = useState(null)
@@ -24,11 +48,19 @@ export default function ThreadsPage() {
 
   useEffect(() => {
     if (!graph || graph.nodes.length === 0) return
-    const nodes = graph.nodes.map((n, i) => ({
-      ...n,
-      x: W / 2 + 70 * Math.cos((2 * Math.PI * i) / graph.nodes.length),
-      y: H / 2 + 45 * Math.sin((2 * Math.PI * i) / graph.nodes.length),
-    }))
+    const pins = loadPins()
+    const nodes = graph.nodes.map((n, i) => {
+      const pin = pins[n.id]
+      return {
+        ...n,
+        x: pin?.fx ?? W / 2 + 70 * Math.cos((2 * Math.PI * i) / graph.nodes.length),
+        y: pin?.fy ?? H / 2 + 45 * Math.sin((2 * Math.PI * i) / graph.nodes.length),
+        // Restoring fx/fy holds the node where it was left; unpinned nodes are
+        // free to settle around them.
+        fx: pin?.fx ?? null,
+        fy: pin?.fy ?? null,
+      }
+    })
     const links = graph.edges.map((e) => ({ ...e }))
     const spread = Math.min(1, nodes.length / 8)
     const sim = forceSimulation(nodes)
@@ -74,6 +106,7 @@ export default function ThreadsPage() {
       d.node.fx = null
       d.node.fy = null
     }
+    savePins(positions?.nodes ?? [])
     lastMoved.current = d.moved
     dragRef.current = null
   }
