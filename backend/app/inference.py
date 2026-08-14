@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 
 import httpx
 
@@ -130,8 +131,10 @@ class InferenceRouter:
         if self.providers.get(key) == "sie" and self.sie is not None:
             try:
                 return await getattr(self.sie, name)(*args)
-            except Exception:
-                pass
+            except Exception as exc:
+                logging.getLogger("notetaker").warning(
+                    "SIE %s failed, falling back to cloud: %s", name, exc
+                )
         return await getattr(self.cloud, name)(*args)
 
     async def transcribe(self, wav_bytes):
