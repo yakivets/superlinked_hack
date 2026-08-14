@@ -3,6 +3,7 @@ import { listMeetings } from './api'
 import HomePage from './screens/HomePage'
 import MeetingPage from './screens/MeetingPage'
 import ThreadsPage from './screens/ThreadsPage'
+import RoutingPage from './screens/RoutingPage'
 import MicTest from './components/MicTest'
 
 function Logo() {
@@ -25,6 +26,7 @@ function useRoute() {
   }, [])
   if (hash.startsWith('#/meeting/')) return { name: 'meeting', id: hash.slice('#/meeting/'.length) }
   if (hash === '#/threads') return { name: 'threads' }
+  if (hash === '#/routing') return { name: 'routing' }
   return { name: 'home' }
 }
 
@@ -80,8 +82,9 @@ export default function App() {
         </a>
         <nav className="flex items-center gap-1">
           <MicTest />
-          <NavLink href="#/" active={route.name !== 'threads'}>Meetings</NavLink>
+          <NavLink href="#/" active={route.name === 'home' || route.name === 'meeting'}>Meetings</NavLink>
           <NavLink href="#/threads" active={route.name === 'threads'}>Threads</NavLink>
+          <NavLink href="#/routing" active={route.name === 'routing'}>Routing</NavLink>
         </nav>
       </header>
 
@@ -93,6 +96,7 @@ export default function App() {
         {route.name === 'home' && <HomePage meetings={meetings} />}
         {route.name === 'meeting' && <MeetingPage id={route.id} />}
         {route.name === 'threads' && <ThreadsPage />}
+        {route.name === 'routing' && <RoutingPage />}
       </main>
     </div>
   )

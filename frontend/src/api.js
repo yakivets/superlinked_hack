@@ -11,6 +11,7 @@ export const getMeeting = (id) => get(`/meetings/${id}`)
 export const searchMeetings = (q, k = 5) =>
   get(`/search?q=${encodeURIComponent(q)}&k=${k}`)
 export const fetchGraph = () => get('/graph')
+export const fetchRouting = () => get('/routing')
 
 export async function askSynthesis(question, k = 5) {
   const res = await fetch(`${BASE}/synthesis`, {
