@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getMeeting } from '../api'
 import {
-  Meta, formatDate, formatTime, formatDuration, STATUS_WORDS,
+  Meta, formatDate, formatTime, formatDuration, shortError, STATUS_WORDS,
 } from '../components/bits'
 
 function BackArrow() {
@@ -21,9 +21,24 @@ function Section({ title, children }) {
   )
 }
 
+function Tab({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      className={`cursor-pointer rounded-md px-2.5 py-1 text-[0.875rem] transition-colors ${
+        active ? 'bg-ink/[0.06] font-medium text-ink' : 'text-soft hover:text-ink'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
 export default function MeetingPage({ id }) {
   const [meeting, setMeeting] = useState(null)
   const [missing, setMissing] = useState(false)
+  const [tab, setTab] = useState('notes')
 
   useEffect(() => {
     let alive = true
@@ -60,8 +75,7 @@ export default function MeetingPage({ id }) {
   const m = meeting
   const inFlight = m.status === 'processing' || m.status === 'transcribed'
   const failed = m.status === 'error'
-  const actions = m.entities?.action_items ?? []
-  const topics = m.entities?.topics ?? []
+  const hasTranscript = m.transcript?.length > 0
 
   const metaParts = [
     `${formatDate(m.created_at)}, ${formatTime(m.created_at)}`,
@@ -79,8 +93,27 @@ export default function MeetingPage({ id }) {
         {metaParts.join(' · ')}
         {inFlight && <span className="ink-pulse ml-3 text-action">{STATUS_WORDS[m.status]}</span>}
       </p>
-      {failed && <p className="meta mt-2 text-danger">Failed: {m.error}</p>}
+      {failed && <p className="meta mt-2 text-danger">Failed: {shortError(m.error)}</p>}
 
+      {hasTranscript && (
+        <div className="mt-6 flex gap-1 border-b border-line pb-3">
+          <Tab active={tab === 'notes'} onClick={() => setTab('notes')}>Notes</Tab>
+          <Tab active={tab === 'transcript'} onClick={() => setTab('transcript')}>
+            Transcript
+          </Tab>
+        </div>
+      )}
+
+      {tab === 'notes' || !hasTranscript ? <Notes m={m} inFlight={inFlight} /> : <Transcript m={m} />}
+    </div>
+  )
+}
+
+function Notes({ m, inFlight }) {
+  const actions = m.entities?.action_items ?? []
+  const topics = m.entities?.topics ?? []
+  return (
+    <div>
       {m.notes?.summary ? (
         <p className="mt-6 leading-[1.7]">{m.notes.summary}</p>
       ) : inFlight ? (
@@ -142,37 +175,37 @@ export default function MeetingPage({ id }) {
           </div>
         </Section>
       )}
-
-      {m.transcript?.length > 0 && <Transcript turns={m.transcript} />}
     </div>
   )
 }
 
-function Transcript({ turns }) {
-  const [open, setOpen] = useState(false)
+function Transcript({ m }) {
+  const turns = m.transcript
+  const speakers = [...new Set(turns.map((t) => t.speaker))]
   return (
-    <section className="mt-8 border-t border-line pt-5 pb-4">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex w-full cursor-pointer items-baseline justify-between text-left"
-        aria-expanded={open}
-      >
-        <span className="text-[0.875rem] font-semibold">
-          Transcript
-          <Meta className="ml-2 font-normal">{turns.length} {turns.length === 1 ? 'turn' : 'turns'}</Meta>
-        </span>
-        <span className="meta text-action">{open ? 'Hide' : 'Show'}</span>
-      </button>
-      {open && (
-        <ol className="mt-4 space-y-3.5">
-          {turns.map((t, i) => (
-            <li key={i} className="text-[0.9375rem] leading-relaxed">
-              <span className="mr-2 font-medium text-soft">{t.speaker}</span>
-              {t.text}
-            </li>
-          ))}
-        </ol>
+    <div>
+      {m.notes?.summary && (
+        <div className="mt-6 rounded-xl border border-line bg-panel p-5 shadow-[0_1px_2px_rgb(31_30_28_/_0.04)]">
+          <p className="leading-[1.65]">{m.notes.summary}</p>
+          <p className="meta mt-3 border-t border-line pt-3">
+            AI summary · written from the raw transcript below
+          </p>
+        </div>
       )}
-    </section>
+      <p className="meta mt-6">
+        {turns.length} {turns.length === 1 ? 'turn' : 'turns'} · {speakers.length}{' '}
+        {speakers.length === 1 ? 'speaker' : 'speakers'}
+      </p>
+      <ol className="mt-4 space-y-4">
+        {turns.map((t, i) => (
+          <li key={i} className="grid grid-cols-[auto_1fr] items-baseline gap-x-3">
+            <span className="rounded-md bg-ink/[0.05] px-2 py-0.5 text-[0.8125rem] font-medium whitespace-nowrap">
+              {t.speaker}
+            </span>
+            <p className="text-[0.9375rem] leading-relaxed">{t.text}</p>
+          </li>
+        ))}
+      </ol>
+    </div>
   )
 }

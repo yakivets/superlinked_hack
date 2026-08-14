@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { searchMeetings, askSynthesis } from '../api'
 import {
   Meta, AnswerText,
-  formatDate, formatTime, formatDuration, STATUS_WORDS,
+  formatDate, formatTime, formatDuration, shortError, STATUS_WORDS,
 } from '../components/bits'
 
 export default function HomePage({ meetings }) {
@@ -199,7 +199,7 @@ function MeetingList({ meetings }) {
               inFlight ? (
                 <p className="meta ink-pulse mt-1.5 text-action">{STATUS_WORDS[m.status]}</p>
               ) : failed ? (
-                <p className="meta mt-1.5 text-danger">Failed: {m.error}</p>
+                <p className="meta mt-1.5 text-danger">Failed: {shortError(m.error)}</p>
               ) : null
             }
           />
