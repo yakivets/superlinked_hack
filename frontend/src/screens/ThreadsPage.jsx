@@ -7,6 +7,38 @@ import threadsArt from '../assets/brand/icon_threads.webp'
 const W = 1080
 const H = 560
 
+// Labels are the densest thing on the canvas, so they are kept small and short.
+// A full title in large type covers the very connections the page exists to show.
+const LABEL_MAX_CHARS = 17
+const LABEL_MAX_LINES = 2
+
+/** Wrap a title onto at most two short lines, eliding the rest. */
+function labelLines(title) {
+  const words = String(title ?? '').split(/\s+/).filter(Boolean)
+  const lines = []
+  let line = ''
+
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word
+    if (candidate.length <= LABEL_MAX_CHARS) {
+      line = candidate
+      continue
+    }
+    if (line) lines.push(line)
+    if (lines.length === LABEL_MAX_LINES) break
+    line = word.length > LABEL_MAX_CHARS ? `${word.slice(0, LABEL_MAX_CHARS - 1)}…` : word
+  }
+  if (line && lines.length < LABEL_MAX_LINES) lines.push(line)
+
+  // Anything that did not fit is signalled on the last line rather than dropped
+  // silently, so a truncated title never reads as the whole title.
+  const used = lines.join(' ')
+  if (used.length < String(title ?? '').length && !used.endsWith('…')) {
+    lines[lines.length - 1] = `${lines[lines.length - 1]}…`
+  }
+  return lines
+}
+
 // Pinned node positions survive navigation: dragging the graph into a readable
 // shape is work, and losing it on every visit makes the page feel broken.
 const PINS_KEY = 'threads.pins.v1'
@@ -68,11 +100,14 @@ export default function ThreadsPage() {
       .force('charge', forceManyBody().strength(-420 - 220 * spread))
       .force('x', forceX(W / 2).strength(0.08))
       .force('y', forceY(H / 2).strength(0.11))
-      .force('collide', forceCollide(80))
+      // Small labels need less clearance than the old full-size ones, so nodes
+      // can sit closer and more of them fit before the graph becomes a tangle.
+      .force('collide', forceCollide(54))
       .on('tick', () => {
         for (const n of nodes) {
-          n.x = Math.max(70, Math.min(W - 70, n.x))
-          n.y = Math.max(48, Math.min(H - 26, n.y))
+          n.x = Math.max(60, Math.min(W - 60, n.x))
+          // Labels hang below the node, so leave room for two lines.
+          n.y = Math.max(24, Math.min(H - 42, n.y))
         }
         setPositions({ nodes: [...nodes], links: [...links] })
       })
@@ -167,15 +202,24 @@ export default function ThreadsPage() {
             }}
             onClick={() => { if (!lastMoved.current) window.location.hash = `#/meeting/${n.id}` }}
           >
-            <circle cx={n.x} cy={n.y} r="11" fill="var(--color-ink)" />
+            <circle cx={n.x} cy={n.y} r="8" fill="var(--color-ink)" />
             <text
               x={n.x}
-              y={n.y - 22}
+              y={n.y + 20}
               textAnchor="middle"
               fill="var(--color-ink)"
-              style={{ fontFamily: 'var(--font-sans)', fontSize: '16.5px', fontWeight: 550 }}
+              // The paper-coloured stroke sits behind the glyphs, so a
+              // connection passing under a label cannot cut through the words.
+              stroke="var(--color-paper)"
+              strokeWidth="3.5"
+              paintOrder="stroke"
+              opacity={picked && picked.source.id !== n.id && picked.target.id !== n.id ? 0.35 : 1}
+              style={{ fontFamily: 'var(--font-sans)', fontSize: '11.5px', fontWeight: 500 }}
             >
-              {n.title}
+              <title>{n.title}</title>
+              {labelLines(n.title).map((line, i) => (
+                <tspan key={i} x={n.x} dy={i === 0 ? 0 : '1.15em'}>{line}</tspan>
+              ))}
             </text>
           </g>
         ))}
