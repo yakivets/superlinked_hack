@@ -24,6 +24,20 @@ class SIEProvider:
     async def transcribe(self, wav_bytes: bytes):
         raise NotImplementedError("SIE ASR not wired; cloud handles transcription")
 
+    async def chat(self, model: str, prompt: str, max_tokens: int = 1500) -> str:
+        """Free-form generation on SIE, used by the per-meeting chat."""
+        resp = await self.client.post(
+            "/v1/chat/completions",
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": max_tokens,
+            },
+            headers=self._headers(),
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
+
     async def generate_notes(self, transcript_text: str, agent_id=None, duration_s: float = 0.0) -> Notes:
         agent = get_agent(agent_id)
         model = agent.model_for(duration_s)

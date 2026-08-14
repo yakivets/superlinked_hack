@@ -168,7 +168,20 @@ class InferenceRouter:
         return await self._call("rerank", query, docs)
 
     async def chat(self, model, prompt, max_tokens: int = 2000):
+        """Alibaba chat - used for the cross-meeting synthesis offload."""
         return await self.cloud.chat(model, prompt, max_tokens)
+
+    async def chat_sie(self, model, prompt, max_tokens: int = 1500):
+        """SIE chat, falling back to Alibaba so a SIE outage degrades rather
+        than breaks. The model id differs per provider, hence the swap."""
+        if self.sie is not None:
+            try:
+                return await self.sie.chat(model, prompt, max_tokens)
+            except Exception as exc:
+                logging.getLogger("notetaker").warning(
+                    "SIE chat failed, falling back to cloud: %s", exc
+                )
+        return await self.cloud.chat("qwen3.7-flash", prompt, max_tokens)
 
 
 _router: InferenceRouter | None = None
