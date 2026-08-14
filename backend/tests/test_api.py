@@ -91,3 +91,18 @@ def test_device_websocket_stream(tmp_path):
     m = wait_done(client, mid)
     assert m["status"] == "done"
     assert m["title"] == "hardware demo"
+
+
+def test_device_websocket_stop_with_no_audio(tmp_path):
+    client = make_client(tmp_path)
+    with client.websocket_connect("/ws/device") as ws:
+        ws.send_text('{"title": "empty"}')
+        ack = ws.receive_json()
+        assert ack["type"] == "ack"
+        mid = ack["id"]
+        ws.send_text('{"event": "stop"}')
+        status = ws.receive_json()
+        assert status == {"type": "status", "status": "processing"}
+    m = client.get(f"/meetings/{mid}").json()
+    assert m["status"] == "error"
+    assert "no audio" in m["error"]

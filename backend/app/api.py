@@ -57,6 +57,8 @@ async def device_stream(ws: WebSocket):
     try:
         while True:
             msg = await ws.receive()
+            if msg.get("type") == "websocket.disconnect":
+                break
             if msg.get("bytes") is not None:
                 frames.extend(msg["bytes"])
             elif msg.get("text") is not None:
@@ -65,15 +67,16 @@ async def device_stream(ws: WebSocket):
                     title = data["title"]
                 if data.get("event") == "stop":
                     break
-            if meeting_id is None:
+            if meeting_id is None and msg.get("type") == "websocket.receive":
                 meeting_id = ws.app.state.store.create_meeting(title)
                 await ws.send_json({"type": "ack", "id": meeting_id})
-            if msg.get("type") == "websocket.disconnect":
-                break
     except WebSocketDisconnect:
         pass
-    if meeting_id is not None and frames:
-        _kick(ws.app, meeting_id, pcm_to_wav(bytes(frames)))
+    if meeting_id is not None:
+        if frames:
+            _kick(ws.app, meeting_id, pcm_to_wav(bytes(frames)))
+        else:
+            ws.app.state.store.update_meeting(meeting_id, status="error", error="no audio received")
         try:
             await ws.send_json({"type": "status", "status": "processing"})
         except Exception:
