@@ -10,3 +10,8 @@ sketch/
 recordings/
 firmware/secrets.h
 HACK.txt
+
+# impeccable working files
+.impeccable/review/
+.impeccable/hook.cache.json
+.impeccable/questions/
