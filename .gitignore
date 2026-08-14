@@ -15,3 +15,6 @@ HACK.txt
 .impeccable/review/
 .impeccable/hook.cache.json
 .impeccable/questions/
+
+# saved recordings, for re-running ASR against a bad transcript
+backend/recordings/

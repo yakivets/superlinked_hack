@@ -28,8 +28,11 @@ def test_parse_speaker_turns_folds_continuations():
 
 
 def test_parse_speaker_turns_no_labels():
+    # Undiarized output used to be attributed to "Speaker 1", which made a
+    # failed diarization look identical to a genuine one-person meeting - the
+    # reason a two-person recording appeared as one speaker.
     turns = parse_speaker_turns("just a plain transcript")
-    assert turns == [SpeakerTurn("Speaker 1", "just a plain transcript")]
+    assert turns == [SpeakerTurn("Unlabelled", "just a plain transcript")]
 
 
 def test_parse_json_block_with_fences():

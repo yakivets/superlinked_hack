@@ -1,13 +1,28 @@
 import asyncio
 import io
+import os
 import wave
+from pathlib import Path
 
-from app import agents, chat, routing_log
+from app import agents, audio, chat, routing_log
 
 # Progress goes to stdout as well as the store: a meeting takes tens of seconds
 # to process and an empty terminal is indistinguishable from a hung one.
 def _log(msg: str) -> None:
     print(msg, flush=True)
+
+
+# Keeping the audio makes a bad transcript reproducible: ASR settings can be
+# re-tried against the exact recording instead of asking someone to say it again.
+RECORDINGS_DIR = Path(os.getenv("RECORDINGS_DIR", "recordings"))
+
+
+def _save_recording(meeting_id: str, wav_bytes: bytes) -> None:
+    try:
+        RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
+        (RECORDINGS_DIR / f"{meeting_id}.wav").write_bytes(wav_bytes)
+    except Exception as exc:      # never fail a meeting over a debug artefact
+        _log(f"could not save recording: {exc}")
 
 
 # Titles the device and the upload form produce when nobody named the meeting.
@@ -57,15 +72,22 @@ async def process_meeting(store, router, meeting_id: str, wav_bytes: bytes,
     try:
         duration_s = wav_duration_s(wav_bytes)
         store.update_meeting(meeting_id, duration_s=duration_s)
+        _save_recording(meeting_id, wav_bytes)
+
+        levels = audio.measure(wav_bytes)
         _log(f"\n[{short_id}] agent={agent_id or 'general'} audio={duration_s:.1f}s "
-             f"-> transcribing (this takes a while for long meetings)")
+             f"peak={levels.get('peak')} rms={levels.get('rms')} -> transcribing")
 
         with routing_log.timed("transcribe", "cloud", "qwen3.5-omni-flash",
                                duration_s=round(duration_s, 1)):
             turns = await router.transcribe(wav_bytes)
         store.update_meeting(meeting_id, status="transcribed", transcript=turns)
 
-        _log(f"[{short_id}] transcript ({len(turns)} turns):")
+        speakers = {t.speaker for t in turns}
+        if len(speakers) <= 1 and duration_s >= 25:
+            _log(f"[{short_id}] WARNING only {len(speakers)} speaker over "
+                 f"{duration_s:.0f}s - diarization likely collapsed")
+        _log(f"[{short_id}] transcript ({len(turns)} turns, {len(speakers)} speakers):")
         for t in turns:
             text = t.text if len(t.text) <= 300 else t.text[:300] + "..."
             _log(f"    {t.speaker}: {text}")

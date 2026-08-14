@@ -4,7 +4,7 @@ import logging
 
 import httpx
 
-from app import routing_log
+from app import audio, routing_log
 from app.config import settings
 from app.models import (
     Entities,
@@ -19,6 +19,28 @@ TRANSCRIBE_PROMPT = (
     "distinct voice as Speaker 1, Speaker 2, etc. Format: one line per "
     "speaker turn, 'Speaker N: <text>'. Output only transcript lines."
 )
+
+# Used when the first pass returns a single speaker for audio long enough that
+# one voice is unlikely. Real room audio has overlaps, interruptions and uneven
+# levels, and the model needs telling that a change of voice is expected.
+TRANSCRIBE_RETRY_PROMPT = (
+    "Transcribe this recording of a conversation between MULTIPLE people.\n\n"
+    "This is real room audio: voices differ in loudness and distance from the "
+    "microphone, people interrupt each other, and there is background noise. Do "
+    "not assume one speaker just because one voice is louder.\n\n"
+    "Listen for changes in voice pitch, timbre, accent and speaking rhythm, and "
+    "for conversational turn-taking - a question followed by an answer is almost "
+    "always two different people.\n\n"
+    "Rules:\n"
+    "- Start EVERY line with 'Speaker N: '\n"
+    "- Start a new line whenever the voice changes\n"
+    "- Number speakers in the order they first talk\n"
+    "- Use the same number for the same voice throughout\n"
+    "- Output transcript lines only, nothing else"
+)
+
+# Below this, a single speaker is entirely plausible and a retry is just cost.
+MIN_SECONDS_TO_SUSPECT_DIARIZATION = 25.0
 
 NOTES_PROMPT = """You are a meeting-notes writer. Given the speaker-labeled transcript below, return ONLY a JSON object:
 {{"summary": "<3-5 sentence summary>", "decisions": ["<decision made, with who made it>"], "open_questions": ["<unresolved question>"]}}
@@ -70,9 +92,9 @@ class CloudProvider:
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]["content"]
 
-    async def transcribe(self, wav_bytes: bytes) -> list[SpeakerTurn]:
+    async def _transcribe_once(self, wav_bytes: bytes, prompt: str) -> str:
         b64 = base64.b64encode(wav_bytes).decode()
-        raw = await self._stream_chat(
+        return await self._stream_chat(
             {
                 "model": "qwen3.5-omni-flash",
                 "stream": True,
@@ -88,13 +110,41 @@ class CloudProvider:
                                     "format": "wav",
                                 },
                             },
-                            {"type": "text", "text": TRANSCRIBE_PROMPT},
+                            {"type": "text", "text": prompt},
                         ],
                     }
                 ],
             }
         )
-        return parse_speaker_turns(raw)
+
+    async def transcribe(self, wav_bytes: bytes) -> list[SpeakerTurn]:
+        log = logging.getLogger("notetaker")
+
+        # A quiet second speaker is often transcribed but not separated, so lift
+        # the whole recording before the model hears it.
+        levels = audio.measure(wav_bytes)
+        conditioned = audio.normalize(wav_bytes)
+        if levels:
+            log.info("audio peak=%s rms=%s seconds=%s",
+                     levels.get("peak"), levels.get("rms"), levels.get("seconds"))
+
+        raw = await self._transcribe_once(conditioned, TRANSCRIBE_PROMPT)
+        turns = parse_speaker_turns(raw)
+
+        # One speaker across a long recording usually means diarization
+        # collapsed rather than one person talking, so try again saying so.
+        seconds = levels.get("seconds", 0.0)
+        speakers = {t.speaker for t in turns}
+        if len(speakers) <= 1 and seconds >= MIN_SECONDS_TO_SUSPECT_DIARIZATION:
+            log.info("one speaker over %.0fs - retrying with the diarization prompt", seconds)
+            retry_raw = await self._transcribe_once(conditioned, TRANSCRIBE_RETRY_PROMPT)
+            retry_turns = parse_speaker_turns(retry_raw)
+            if len({t.speaker for t in retry_turns}) > 1:
+                log.info("retry found %d speakers", len({t.speaker for t in retry_turns}))
+                return retry_turns
+            log.info("retry still found one speaker; keeping the first result")
+
+        return turns
 
     async def generate_notes(self, transcript_text: str, agent_id=None, duration_s: float = 0.0) -> Notes:
         from app.agents import get_agent

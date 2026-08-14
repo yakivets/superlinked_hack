@@ -72,21 +72,40 @@ class Entities:
         )
 
 
-_SPEAKER_RE = re.compile(r"^\s*(Speaker \d+)\s*:\s*(.*)$")
+# Models label speakers inconsistently: "Speaker 1", "SPEAKER_2", "Speaker A",
+# sometimes bolded. Accepting only "Speaker N:" threw the rest away and the text
+# was then glued onto the previous turn, which reads as one person talking.
+_SPEAKER_RE = re.compile(
+    r"^\s*[*_\-\s]*speaker[\s_]*([0-9]+|[a-z])[*_\s]*\s*[:\-]\s*(.*)$",
+    re.IGNORECASE,
+)
 
 
 def parse_speaker_turns(raw: str) -> list[SpeakerTurn]:
+    """Parse 'Speaker N: text' lines into turns.
+
+    Labels are normalised to "Speaker N" so that "SPEAKER_2", "Speaker B" and
+    "**Speaker 2**" do not become three different people in the same transcript.
+    """
     turns: list[SpeakerTurn] = []
+    seen: dict[str, str] = {}
+
     for line in raw.splitlines():
         if not line.strip():
             continue
         m = _SPEAKER_RE.match(line)
         if m:
-            turns.append(SpeakerTurn(m.group(1), m.group(2).strip()))
+            raw_label = m.group(1).lower()
+            if raw_label not in seen:
+                # Letters and numbers both map onto the order of first appearance.
+                seen[raw_label] = f"Speaker {len(seen) + 1}"
+            turns.append(SpeakerTurn(seen[raw_label], m.group(2).strip()))
         elif turns:
             turns[-1].text = (turns[-1].text + " " + line.strip()).strip()
         else:
-            turns.append(SpeakerTurn("Speaker 1", line.strip()))
+            # Unlabelled output: the model transcribed but did not diarize. Say
+            # so rather than asserting a speaker we did not identify.
+            turns.append(SpeakerTurn("Unlabelled", line.strip()))
     return turns
 
 
