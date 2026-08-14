@@ -102,7 +102,7 @@ def test_device_websocket_stop_with_no_audio(tmp_path):
         mid = ack["id"]
         ws.send_text('{"event": "stop"}')
         status = ws.receive_json()
-        assert status == {"type": "status", "status": "processing"}
+        assert status == {"type": "status", "status": "error"}
     m = client.get(f"/meetings/{mid}").json()
     assert m["status"] == "error"
     assert "no audio" in m["error"]
