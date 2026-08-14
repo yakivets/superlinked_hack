@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { forceSimulation, forceLink, forceManyBody, forceCollide, forceX, forceY } from 'd3-force'
 import { fetchGraph } from '../api'
 import { Meta } from '../components/bits'
+import threadsArt from '../assets/brand/icon_threads.webp'
 
-const W = 720
-const H = 340
+const W = 1080
+const H = 560
 
 export default function ThreadsPage() {
   const [graph, setGraph] = useState(null)
@@ -12,6 +13,7 @@ export default function ThreadsPage() {
   const [picked, setPicked] = useState(null)
   const simRef = useRef(null)
   const dragRef = useRef(null)
+  const lastMoved = useRef(false)
   const svgRef = useRef(null)
 
   useEffect(() => {
@@ -30,11 +32,11 @@ export default function ThreadsPage() {
     const links = graph.edges.map((e) => ({ ...e }))
     const spread = Math.min(1, nodes.length / 8)
     const sim = forceSimulation(nodes)
-      .force('link', forceLink(links).id((d) => d.id).distance((d) => 150 - d.weight * 60).strength((d) => d.weight))
-      .force('charge', forceManyBody().strength(-260 - 140 * spread))
-      .force('x', forceX(W / 2).strength(0.09))
-      .force('y', forceY(H / 2).strength(0.12))
-      .force('collide', forceCollide(64))
+      .force('link', forceLink(links).id((d) => d.id).distance((d) => 240 - d.weight * 110).strength((d) => d.weight))
+      .force('charge', forceManyBody().strength(-420 - 220 * spread))
+      .force('x', forceX(W / 2).strength(0.08))
+      .force('y', forceY(H / 2).strength(0.11))
+      .force('collide', forceCollide(80))
       .on('tick', () => {
         for (const n of nodes) {
           n.x = Math.max(70, Math.min(W - 70, n.x))
@@ -57,26 +59,33 @@ export default function ThreadsPage() {
   const onPointerMove = (e) => {
     if (!dragRef.current) return
     const p = svgPoint(e)
-    dragRef.current.fx = p.x
-    dragRef.current.fy = p.y
+    const d = dragRef.current
+    if (Math.hypot(p.x - d.startX, p.y - d.startY) > 5) d.moved = true
+    d.node.fx = p.x
+    d.node.fy = p.y
     simRef.current?.alpha(0.5).restart()
   }
 
+  // A real drag pins the node where it was dropped; a still pointer is a click.
   const endDrag = () => {
-    if (dragRef.current) {
-      dragRef.current.fx = null
-      dragRef.current.fy = null
-      dragRef.current = null
+    const d = dragRef.current
+    if (!d) return
+    if (!d.moved) {
+      d.node.fx = null
+      d.node.fy = null
     }
+    lastMoved.current = d.moved
+    dragRef.current = null
   }
 
   if (!graph) return <p className="ink-pulse mt-12 text-soft">Loading…</p>
 
   if (graph.nodes.length < 2) {
     return (
-      <div className="mt-14">
-        <p className="text-[1.05rem] font-medium">Not enough meetings yet.</p>
-        <p className="mt-2 max-w-[44ch] leading-relaxed text-soft">
+      <div className="mt-14 text-center">
+        <img src={threadsArt} alt="" width="110" height="110" className="mx-auto rounded-full" />
+        <p className="mt-4 text-[1.05rem] font-medium">Not enough meetings yet.</p>
+        <p className="mx-auto mt-1.5 max-w-[44ch] leading-relaxed text-soft">
           Once two or more meetings are done, related ones connect here.
         </p>
       </div>
@@ -86,10 +95,10 @@ export default function ThreadsPage() {
   const pos = positions ?? { nodes: graph.nodes.map((n) => ({ ...n, x: W / 2, y: H / 2 })), links: [] }
 
   return (
-    <div className="mt-8">
+    <div className="relative left-1/2 mt-8 w-[min(94vw,72rem)] -translate-x-1/2">
       <p className="meta max-w-[52ch] leading-relaxed">
         Meetings that talked about similar things sit closer together.
-        Click a line to see what two meetings share.
+        Click a line to see what two meetings share. Drag a meeting and it stays where you leave it.
       </p>
       <svg
         ref={svgRef}
@@ -118,12 +127,12 @@ export default function ThreadsPage() {
             className="cursor-pointer"
             onPointerDown={(e) => {
               e.preventDefault()
-              dragRef.current = n
               const p = svgPoint(e)
+              dragRef.current = { node: n, startX: p.x, startY: p.y, moved: false }
               n.fx = p.x
               n.fy = p.y
             }}
-            onClick={() => { if (!dragRef.current) window.location.hash = `#/meeting/${n.id}` }}
+            onClick={() => { if (!lastMoved.current) window.location.hash = `#/meeting/${n.id}` }}
           >
             <circle cx={n.x} cy={n.y} r="11" fill="var(--color-ink)" />
             <text

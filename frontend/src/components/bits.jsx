@@ -21,6 +21,13 @@ export function formatDuration(s) {
   return m > 0 ? `${m}m ${sec}s` : `${sec}s`
 }
 
+/** Keep pipeline errors human: drop URLs and stack noise, clamp length. */
+export function shortError(e) {
+  if (!e) return 'Something went wrong.'
+  const cut = e.split(/ for url | \(|\nTraceback/i)[0].trim()
+  return cut.length > 120 ? `${cut.slice(0, 117)}…` : cut
+}
+
 export const STATUS_WORDS = {
   processing: 'Transcribing…',
   transcribed: 'Writing notes…',

@@ -1,17 +1,23 @@
 import { useEffect, useState } from 'react'
 import { listMeetings } from './api'
+import LandingPage from './screens/LandingPage'
 import HomePage from './screens/HomePage'
 import MeetingPage from './screens/MeetingPage'
 import ThreadsPage from './screens/ThreadsPage'
-import MicTest from './components/MicTest'
+import RoutingPage from './screens/RoutingPage'
 
+// The Echo mark: the user's generated logo (assets/brand/logo_mark_blue.png)
+// redrawn as vectors so it stays crisp at UI sizes.
 function Logo() {
   return (
     <svg viewBox="0 0 32 32" width="22" height="22" aria-hidden="true">
-      <rect width="32" height="32" rx="7" fill="var(--color-ink)" />
-      <circle cx="13" cy="16" r="3.2" fill="var(--color-paper)" />
-      <path d="M19 10.5 A7.5 7.5 0 0 1 19 21.5" fill="none" stroke="var(--color-paper)" strokeWidth="2.2" strokeLinecap="round" />
-      <path d="M23 7.5 A12 12 0 0 1 23 24.5" fill="none" stroke="var(--color-paper)" strokeWidth="2.2" strokeLinecap="round" opacity="0.55" />
+      <rect x="1.5" y="1.5" width="29" height="29" rx="6.5" fill="none" stroke="var(--color-ink)" strokeWidth="2.4" />
+      <rect x="7" y="7" width="7" height="7" rx="1.4" fill="var(--color-ink)" />
+      <rect x="18" y="7" width="7" height="7" rx="1.4" fill="var(--color-ink)" />
+      <rect x="7" y="18" width="7" height="7" rx="1.4" fill="var(--color-ink)" />
+      <path d="M17.7 19.4 A3 3 0 0 1 17.7 23.6" fill="none" stroke="var(--color-action)" strokeWidth="2" strokeLinecap="round" />
+      <path d="M20.4 17.4 A5.9 5.9 0 0 1 20.4 25.6" fill="none" stroke="var(--color-action)" strokeWidth="2" strokeLinecap="round" />
+      <path d="M23.1 15.5 A8.7 8.7 0 0 1 23.1 27.5" fill="none" stroke="var(--color-action)" strokeWidth="2" strokeLinecap="round" />
     </svg>
   )
 }
@@ -24,8 +30,10 @@ function useRoute() {
     return () => window.removeEventListener('hashchange', onChange)
   }, [])
   if (hash.startsWith('#/meeting/')) return { name: 'meeting', id: hash.slice('#/meeting/'.length) }
+  if (hash === '#/meetings') return { name: 'meetings' }
   if (hash === '#/threads') return { name: 'threads' }
-  return { name: 'home' }
+  if (hash === '#/routing') return { name: 'routing' }
+  return { name: 'landing' }
 }
 
 function useMeetings() {
@@ -79,9 +87,9 @@ export default function App() {
           <span className="text-[1rem] font-semibold tracking-tight">Echo</span>
         </a>
         <nav className="flex items-center gap-1">
-          <MicTest />
-          <NavLink href="#/" active={route.name !== 'threads'}>Meetings</NavLink>
+          <NavLink href="#/meetings" active={route.name === 'meetings' || route.name === 'meeting'}>Meetings</NavLink>
           <NavLink href="#/threads" active={route.name === 'threads'}>Threads</NavLink>
+          <NavLink href="#/routing" active={route.name === 'routing'}>Routing</NavLink>
         </nav>
       </header>
 
@@ -90,9 +98,11 @@ export default function App() {
       )}
 
       <main>
-        {route.name === 'home' && <HomePage meetings={meetings} />}
+        {route.name === 'landing' && <LandingPage />}
+        {route.name === 'meetings' && <HomePage meetings={meetings} />}
         {route.name === 'meeting' && <MeetingPage id={route.id} />}
         {route.name === 'threads' && <ThreadsPage />}
+        {route.name === 'routing' && <RoutingPage />}
       </main>
     </div>
   )

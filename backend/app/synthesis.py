@@ -1,3 +1,4 @@
+from app import routing_log
 from app.search import cosine, search_meetings
 
 SYNTHESIS_PROMPT = """You are an assistant answering a question by reasoning across several past meetings. Use ONLY the meeting records below. Cite meetings by title when relevant. Answer concisely.
@@ -33,7 +34,8 @@ async def synthesize(store, router, question: str, k: int = 5) -> dict:
     prompt = SYNTHESIS_PROMPT.format(
         question=question, meetings="\n".join(_meeting_block(m) for m in meetings)
     )
-    answer = await router.chat("qwen3.8-max", prompt)
+    with routing_log.timed("synthesis", "cloud", "qwen3.8-max", meetings=len(meetings)):
+        answer = await router.chat("qwen3.8-max", prompt)
     return {
         "answer": answer,
         "sources": [{"id": m["id"], "title": m["title"]} for m in meetings],
