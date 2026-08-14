@@ -1,3 +1,5 @@
+import pytest
+
 from app.models import (
     ActionItem,
     Entities,
@@ -52,3 +54,14 @@ def test_entities_roundtrip():
         topics=["payments"],
     )
     assert Entities.from_dict(e.to_dict()) == e
+
+
+def test_parse_json_block_no_json_raises_valueerror():
+    with pytest.raises(ValueError, match="no JSON object"):
+        parse_json_block("just plain text with no braces")
+
+
+def test_parse_json_block_with_stray_braces_extracts_valid_json():
+    raw = 'The schema is {like this} but the real answer is {"a": 1}'
+    result = parse_json_block(raw)
+    assert result == {"a": 1}
