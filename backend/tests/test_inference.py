@@ -5,7 +5,7 @@ import httpx
 import pytest
 
 from app.inference import CloudProvider, InferenceRouter
-from app.models import Notes, SpeakerTurn
+from app.models import ActionItem, Entities, Notes, SpeakerTurn
 
 
 def sse(chunks):
@@ -42,6 +42,10 @@ async def test_transcribe_parses_streamed_speaker_turns():
 
 async def test_generate_notes_parses_json():
     def handler(request):
+        assert request.url.path.endswith("/chat/completions")
+        body = json.loads(request.content)
+        assert body["model"] == "qwen3.7-flash"
+        assert "stream" not in body or body["stream"] is not True
         content = json.dumps(
             {
                 "choices": [
@@ -61,8 +65,46 @@ async def test_generate_notes_parses_json():
     assert notes == Notes(summary="s", decisions=["d"], open_questions=[])
 
 
+async def test_extract_parses_json():
+    def handler(request):
+        assert request.url.path.endswith("/chat/completions")
+        body = json.loads(request.content)
+        assert body["model"] == "qwen3.7-flash"
+        content = json.dumps(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": json.dumps(
+                                {
+                                    "action_items": [{"text": "ship it", "owner": "Speaker 1"}],
+                                    "people": ["Alice", "Bob"],
+                                    "dates": ["Friday"],
+                                    "topics": ["launch"],
+                                }
+                            )
+                        }
+                    }
+                ]
+            }
+        )
+        return httpx.Response(200, content=content, headers={"content-type": "application/json"})
+
+    p = make_provider(handler)
+    entities = await p.extract("Speaker 1: Alice and Bob will ship it Friday")
+    assert entities == Entities(
+        action_items=[ActionItem(text="ship it", owner="Speaker 1")],
+        people=["Alice", "Bob"],
+        dates=["Friday"],
+        topics=["launch"],
+    )
+
+
 async def test_embed_returns_vectors():
     def handler(request):
+        assert request.url.path.endswith("/compatible-mode/v1/embeddings")
+        body = json.loads(request.content)
+        assert body["model"] == "qwen3.7-text-embedding"
         return httpx.Response(
             200,
             json={"data": [{"index": 0, "embedding": [0.1, 0.2]}, {"index": 1, "embedding": [0.3, 0.4]}]},
